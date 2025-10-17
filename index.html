@@ -1,0 +1,2078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Digital Pantry</title>
+  <meta name="description" content="A stateful web app for managing your ingredients, recipes, and cupboard.">
+  <style>
+    /* 1. SETUP & THEME */
+    :root {
+      --color-background: #121212;
+      --color-surface: #1e1e1e;
+      --color-primary: #bb86fc;
+      --color-on-background: #e1e1e1;
+      --color-on-surface: #e1e1e1;
+      --color-on-primary: #000;
+      --color-border: #333;
+      --color-success: #03dac6;
+      --color-danger: #cf6679;
+      --color-info: #2196f3;
+      --spacing-xs: 0.25rem;
+      --spacing-sm: 0.5rem;
+      --spacing-md: 1rem;
+      --spacing-lg: 1.5rem;
+      --radius: 0.5rem;
+      --font-family: system-ui, -apple-system, "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+      --transition-speed: 0.3s;
+    }
+
+    /* 2. BASE & LAYOUT */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font-family);
+      line-height: 1.6;
+      background-color: var(--color-background);
+      color: var(--color-on-background);
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .app-header {
+      background-color: var(--color-background);
+      padding: var(--spacing-md);
+      border-bottom: 1px solid var(--color-border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+
+      & h1 {
+        margin: 0 0 var(--spacing-md) 0;
+        font-size: clamp(1.5rem, 5vw, 2rem);
+        text-align: center;
+        color: var(--color-primary);
+      }
+
+      & nav ul {
+        display: flex;
+        justify-content: center;
+        list-style: none;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
+        margin: 0;
+        padding: 0;
+      }
+    }
+
+    main {
+      flex-grow: 1;
+      padding: var(--spacing-lg);
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .app-footer {
+      padding: var(--spacing-md);
+      border-top: 1px solid var(--color-border);
+      position: sticky;
+      bottom: 0;
+      background: var(--color-background);
+      z-index: 10;
+
+      & .footer-actions {
+        display: flex;
+        justify-content: center;
+        gap: var(--spacing-md);
+        flex-wrap: wrap;
+      }
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+      margin-bottom: var(--spacing-lg);
+
+      & h2 {
+        font-size: clamp(1.25rem, 4vw, 1.75rem);
+        margin: 0;
+      }
+    }
+
+    /* 3. REUSABLE COMPONENTS */
+    .button,
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background-color var(--transition-speed), transform var(--transition-speed);
+      -webkit-appearance: none;
+      appearance: none;
+
+      &:hover,
+      &:focus-visible {
+        transform: translateY(-2px);
+        filter: brightness(1.1);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        filter: none;
+      }
+    }
+
+    .button.small {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      font-size: 0.875rem;
+    }
+
+    .icon-button {
+      background: none;
+      border: none;
+      padding: var(--spacing-xs);
+      color: var(--color-on-surface);
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color var(--transition-speed), color var(--transition-speed);
+
+      &:hover, &:focus-visible {
+        background-color: var(--color-border);
+        color: var(--color-primary);
+      }
+      & svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+      }
+    }
+
+    .icon-button.primary {
+      color: var(--color-primary);
+      
+      &:hover, &:focus-visible {
+        background-color: var(--color-primary);
+        color: var(--color-on-primary);
+      }
+    }
+
+    .icon-button.danger {
+      color: var(--color-danger);
+      
+      &:hover, &:focus-visible {
+        background-color: var(--color-danger);
+        color: var(--color-on-primary);
+      }
+    }
+
+    .icon-button.success {
+      color: var(--color-success);
+      
+      &:hover, &:focus-visible {
+        background-color: var(--color-success);
+        color: var(--color-on-primary);
+      }
+    }
+
+    .button.primary {
+      background-color: var(--color-primary);
+      color: var(--color-on-primary);
+      border-color: var(--color-primary);
+    }
+
+    .button.secondary {
+      background-color: var(--color-surface);
+      color: var(--color-on-surface);
+      border-color: var(--color-border);
+    }
+
+    .button.info {
+      background-color: var(--color-info);
+      color: var(--color-on-primary);
+    }
+
+    .button.danger {
+      background-color: var(--color-danger);
+      color: var(--color-on-primary);
+    }
+
+    .nav-link {
+      background-color: var(--color-surface);
+      color: var(--color-on-surface);
+      border-color: var(--color-border);
+
+      &[aria-selected="true"] {
+        background-color: var(--color-primary);
+        color: var(--color-on-primary);
+        border-color: var(--color-primary);
+        font-weight: 700;
+      }
+    }
+
+    .card {
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      position: relative;
+      margin-bottom: var(--spacing-md);
+      transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+
+      &:hover,
+      &:focus-within {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      & [data-action="navigate"] {
+        display: block;
+        padding: var(--spacing-md);
+        color: inherit;
+        text-decoration: none;
+
+        &::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: var(--radius);
+        }
+      }
+
+      & header h3 {
+        font-size: 1.2rem;
+        color: var(--color-primary);
+        margin: 0 0 var(--spacing-xs);
+      }
+
+      & .card-content {
+        font-size: 0.9rem;
+        opacity: 0.9;
+      }
+
+      & .card-footer {
+        margin-top: var(--spacing-md);
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+      }
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      padding: var(--spacing-xs) var(--spacing-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 99px;
+      background-color: var(--color-border);
+      color: var(--color-on-background);
+      margin-inline-end: var(--spacing-xs);
+      margin-bottom: var(--spacing-xs);
+
+      &.success {
+        background-color: var(--color-success);
+        color: var(--color-on-primary);
+      }
+    }
+
+    /* 4. FORM STYLES */
+    .form-group {
+      margin-bottom: var(--spacing-md);
+
+      & label {
+        display: block;
+        margin-bottom: var(--spacing-xs);
+        font-size: 0.9rem;
+        font-weight: 500;
+      }
+    }
+
+    fieldset {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: var(--spacing-md);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    legend {
+      padding: 0 var(--spacing-sm);
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select,
+    .select-wrapper select,
+    .inline-edit-form input,
+    .dynamic-list-item input,
+    .dynamic-list-item textarea,
+    .generic-list-item input {
+      width: 100%;
+      padding: var(--spacing-sm);
+      background-color: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      color: var(--color-on-background);
+      font-family: inherit;
+      font-size: 1rem;
+      resize: vertical;
+
+      &:focus,
+      &:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+      }
+    }
+
+    .select-wrapper {
+      position: relative;
+      display: block;
+
+      &::after {
+        content: '▼';
+        font-size: 0.8em;
+        color: var(--color-primary);
+        position: absolute;
+        right: var(--spacing-md);
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+
+      & select {
+        -webkit-appearance: none;
+        appearance: none;
+        padding-right: 2rem;
+      }
+    }
+
+    .inline-edit-form {
+      display: flex;
+      gap: var(--spacing-sm);
+      width: 100%;
+      align-items: center;
+
+      & input {
+        flex-grow: 1;
+      }
+    }
+
+    .dynamic-list-item {
+      display: grid;
+      gap: var(--spacing-sm);
+      align-items: center;
+      margin-bottom: var(--spacing-sm);
+
+      &.ingredient-row {
+        grid-template-columns: 2fr 1fr 1fr auto;
+      }
+
+      &.instruction-row {
+        grid-template-columns: 1fr auto;
+      }
+    }
+
+    /* 5. VIEW-SPECIFIC STYLES */
+    .ingredient-list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+      padding: var(--spacing-sm) 0;
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: background-color var(--transition-speed);
+    }
+
+    .ingredient-list-item:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .shopping-list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+      padding: var(--spacing-sm) 0;
+      border-bottom: 1px solid var(--color-border);
+      transition: opacity var(--transition-speed);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .shopping-list-item:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .shopping-list-item.checked {
+      opacity: 0.6;
+    }
+
+    .shopping-list-item.checked strong,
+    .shopping-list-item.checked span {
+      text-decoration: line-through;
+    }
+
+    .shopping-list-item button {
+      position: relative;
+      z-index: 2;
+      pointer-events: auto;
+    }
+
+    .detail-view .detail-section {
+      background: var(--color-surface);
+      padding: var(--spacing-md);
+      border-radius: var(--radius);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .detail-view .detail-section h3 {
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: var(--spacing-sm);
+      margin-top: 0;
+      margin-bottom: var(--spacing-md);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .detail-section-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: var(--spacing-xs);
+      color: var(--color-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      font-size: 1rem;
+      font-weight: 600;
+      width: 100%;
+      text-align: left;
+    }
+
+    .detail-section-toggle:hover {
+      opacity: 0.8;
+    }
+
+    .detail-section-toggle .chevron {
+      margin-left: auto;
+      transition: transform var(--transition-speed);
+    }
+
+    .detail-section-toggle .chevron svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    .detail-section.collapsed .chevron {
+      transform: rotate(180deg);
+    }
+
+    .detail-section-content {
+      overflow: hidden;
+      transition: max-height var(--transition-speed) ease-out, opacity var(--transition-speed) ease-out, padding var(--transition-speed) ease-out;
+      opacity: 1;
+    }
+
+    .detail-section.collapsed .detail-section-content {
+      max-height: 0 !important;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    .detail-view .detail-section.collapsed h3 {
+      margin-bottom: 0;
+      border-bottom: none;
+    }
+
+    .detail-view ul,
+    .detail-view ol {
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .detail-view ol li {
+      list-style: decimal inside;
+      border-bottom: none;
+      padding: var(--spacing-sm) 0;
+    }
+    .detail-view ol li::marker { color: var(--color-primary); font-weight: bold; }
+
+    .search-widget {
+      background-color: var(--color-surface);
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      margin-bottom: var(--spacing-lg);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows var(--transition-speed), padding var(--transition-speed);
+      padding: 0 var(--spacing-md);
+
+      & > div {
+        min-height: 0;
+      }
+
+      &.is-open {
+        grid-template-rows: 1fr;
+        border-color: var(--color-border);
+        padding: var(--spacing-md);
+      }
+    }
+
+    .generic-list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--spacing-sm) 0;
+      border-bottom: 1px solid var(--color-border);
+
+      & .actions {
+        display: flex;
+        gap: var(--spacing-xs);
+      }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--spacing-lg);
+      background-color: var(--color-surface);
+      border: 2px dashed var(--color-border);
+      border-radius: var(--radius);
+    }
+
+    .cooking-mode {
+      text-align: center;
+
+      & .progress-bar {
+        width: 100%;
+        height: 1rem;
+        background-color: var(--color-surface);
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin: var(--spacing-md) 0;
+
+        & > div {
+          height: 100%;
+          background-color: var(--color-primary);
+          transition: width var(--transition-speed) ease-in-out;
+        }
+      }
+
+      & .step-display {
+        font-size: 1.5rem;
+        background: var(--color-surface);
+        padding: var(--spacing-lg);
+        border-radius: var(--radius);
+        min-height: 150px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: var(--spacing-lg);
+      }
+
+      & .step-navigation {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--spacing-md);
+      }
+    }
+
+    /* 6. UTILITIES */
+    .toast-notification {
+      position: fixed;
+      bottom: var(--spacing-md);
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: var(--color-success);
+      color: var(--color-on-primary);
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border-radius: var(--radius);
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.5s, transform 0.5s;
+      pointer-events: none;
+
+      &.show {
+        opacity: 1;
+        transform: translate(-50%, calc(-100% - 1rem));
+      }
+
+      &.error {
+        background-color: var(--color-danger);
+      }
+    }
+  </style>
+</head>
+<body>
+<header class="app-header">
+  <h1>The Digital Pantry</h1>
+  <nav aria-label="Main Navigation">
+    <ul>
+      <li>
+        <button class="nav-link" data-action="navigate" data-view="recipes">Recipes</button>
+      </li>
+      <li>
+        <button class="nav-link" data-action="navigate" data-view="cupboard">Cupboard</button>
+      </li>
+      <li>
+        <button class="nav-link" data-action="navigate" data-view="shopping-list">Shopping List</button>
+      </li>
+      <li>
+        <button class="nav-link" data-action="navigate" data-view="ingredients">Ingredients</button>
+      </li>
+    </ul>
+  </nav>
+</header>
+<main id="app-root"></main>
+<footer class="app-footer">
+  <div class="footer-actions" id="footer-actions"></div>
+</footer>
+<div id="toast-notification" class="toast-notification" role="alert" aria-live="assertive"></div>
+
+<!-- TEMPLATES -->
+<template id="recipes-list-template">
+  <section>
+    <div class="page-header">
+      <h2>My Recipes</h2>
+      <button class="button secondary" data-action="toggle-search-widget" aria-expanded="false" aria-controls="search-widget">Filter Recipes</button>
+    </div>
+    <div class="search-widget" id="search-widget" data-container="search-widget">
+      <div>
+        <h4>Active Filters</h4>
+        <div id="active-filters"><p>No filters applied. Showing all recipes.</p>
+        </div>
+        <h4 style="margin-top: var(--spacing-md);">Add an Ingredient Filter</h4>
+        <div id="filter-dropdowns"></div>
+      </div>
+    </div>
+    <div data-list-target="recipes"></div>
+  </section>
+</template>
+
+<template id="recipe-card-template">
+  <article class="card">
+    <a href="#" data-action="navigate">
+      <header><h3 data-text="name"></h3></header>
+      <div class="card-content" data-text="summary"></div>
+      <footer class="card-footer" data-container="tags"></footer>
+    </a>
+  </article>
+</template>
+
+<template id="recipe-detail-template">
+  <section class="detail-view">
+    <div class="page-header" style="flex-direction: column; align-items: flex-start;">
+      <div style="display: flex; align-items: center; gap: var(--spacing-sm); width: 100%;">
+        <h2 data-text="name" style="margin: 0;"></h2>
+        <button class="icon-button" title="Edit recipe" aria-label="Edit recipe" data-action="navigate" data-view="edit-recipe" data-id="">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+          </svg>
+        </button>
+      </div>
+      <p style="margin:0;"><span data-text="category"></span> | Serves
+        <span data-text="servings"></span></p>
+      <div class="card-footer" data-container="tags" style="margin-top:var(--spacing-sm);"></div>
+    </div>
+    <div class="detail-section" data-collapsible="ingredients">
+      <h3>
+        <button class="detail-section-toggle" data-action="toggle-section" data-section="ingredients" aria-expanded="true">
+          <span>Ingredients</span>
+          <span class="chevron">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
+            </svg>
+          </span>
+        </button>
+      </h3>
+      <div class="detail-section-content">
+        <ul data-list-target="ingredients"></ul>
+      </div>
+    </div>
+    <div class="detail-section">
+      <h3>
+        <span>Instructions</span>
+        <button class="button primary" data-action="navigate" data-view="cooking" data-id="" style="margin-left: auto;">Start Cooking</button>
+      </h3>
+      <ol data-list-target="steps"></ol>
+    </div>
+    <div class="detail-section" data-container="notes">
+      <h3>Notes</h3>
+      <p data-text="notes" style="white-space: pre-wrap;"></p>
+    </div>
+  </section>
+</template>
+
+<template id="recipe-form-template">
+  <section>
+    <div class="page-header"><h2></h2></div>
+    <form data-action="save-recipe" id="recipe-form" novalidate>
+      <fieldset>
+        <legend>Basic Information</legend>
+        <div class="form-group">
+          <label for="recipe-name">Recipe Name</label>
+          <input type="text" id="recipe-name" name="name" required>
+        </div>
+        <div class="form-group">
+          <label for="recipe-servings">Servings</label>
+          <input type="number" id="recipe-servings" name="servings" min="1" required>
+        </div>
+        <div class="form-group">
+          <label for="recipe-category">Category</label>
+          <input type="text" id="recipe-category" name="category" list="category-suggestions" required>
+        </div>
+        <div class="form-group">
+          <label for="recipe-tags">Tags (comma separated)</label>
+          <input type="text" id="recipe-tags" name="tags" placeholder="e.g. Quick, Vegan, Dinner Party">
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Ingredients</legend>
+        <div data-list-target="ingredients"></div>
+        <button type="button" class="button secondary" data-action="form-add-ingredient-row">Add Ingredient</button>
+      </fieldset>
+      <fieldset>
+        <legend>Instructions</legend>
+        <div data-list-target="steps"></div>
+        <button type="button" class="button secondary" data-action="form-add-instruction-row">Add Step</button>
+      </fieldset>
+      <fieldset>
+        <legend>Notes</legend>
+        <div class="form-group">
+          <label for="recipe-notes">Additional Notes</label>
+          <textarea id="recipe-notes" name="notes" rows="4"></textarea>
+        </div>
+      </fieldset>
+    </form>
+    <datalist id="category-suggestions">
+      <option value="Soup"></option>
+      <option value="Salad"></option>
+      <option value="Pasta"></option>
+      <option value="Main Course"></option>
+      <option value="Dessert"></option>
+      <option value="Breakfast"></option>
+    </datalist>
+  </section>
+</template>
+
+<template id="ingredient-form-row-template">
+  <div class="dynamic-list-item ingredient-row">
+    <div class="select-wrapper">
+      <select name="ingredientId" aria-label="Ingredient" required></select>
+    </div>
+    <input type="text" name="amount" aria-label="Amount" required>
+    <input type="text" name="measurement" aria-label="Measurement Unit">
+    <button type="button" class="button danger icon-button" data-action="form-remove-row" aria-label="Remove Ingredient Row">
+      <svg viewBox="0 0 24 24">
+        <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+      </svg>
+    </button>
+  </div>
+</template>
+
+<template id="instruction-form-row-template">
+  <div class="dynamic-list-item instruction-row">
+    <textarea name="instruction" aria-label="Instruction Step" rows="2" required></textarea>
+    <button type="button" class="button danger icon-button" data-action="form-remove-row" aria-label="Remove Instruction Step">
+      <svg viewBox="0 0 24 24">
+        <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+      </svg>
+    </button>
+  </div>
+</template>
+
+<template id="cupboard-view-template">
+  <section>
+    <div class="page-header"><h2>My Cupboard</h2></div>
+    <form data-action="cupboard-add" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: var(--spacing-sm); align-items: flex-end; margin-bottom: var(--spacing-lg);">
+      <div class="form-group" style="margin:0;">
+        <label for="cupboard-ingredient">Ingredient</label>
+        <div class="select-wrapper">
+          <select name="ingredientId" id="cupboard-ingredient" required></select>
+        </div>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label for="cupboard-amount">Amount</label>
+        <input type="text" name="amount" id="cupboard-amount" required>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label for="cupboard-measurement">Unit</label>
+        <input type="text" name="measurement" id="cupboard-measurement">
+      </div>
+      <button type="submit" class="button primary">Add</button>
+    </form>
+    <ul style="list-style:none; padding:0" data-list-target="cupboard"></ul>
+  </section>
+</template>
+
+<template id="cupboard-item-template">
+  <li class="generic-list-item">
+    <span><strong data-text="name"></strong> (<span data-text="details"></span>)</span>
+    <button class="button danger" data-action="cupboard-remove">Remove</button>
+  </li>
+</template>
+
+<template id="ingredients-list-template">
+  <section>
+    <div class="page-header"><h2>Master Ingredients List</h2></div>
+    <form data-action="add-ingredient-inline" style="margin-bottom: var(--spacing-lg);">
+      <div class="form-group" style="margin-bottom: var(--spacing-sm);">
+        <label for="new-ingredient-name">New Ingredient Name</label>
+        <div style="display: flex; gap: var(--spacing-sm);">
+          <input type="text" name="name" id="new-ingredient-name" placeholder="Enter ingredient name..." required style="flex: 1;">
+          <button type="submit" class="button primary small">Quick Add</button>
+        </div>
+      </div>
+    </form>
+    <ul style="list-style:none; padding:0" data-list-target="ingredients"></ul>
+  </section>
+</template>
+
+<template id="ingredient-item-template">
+  <li class="generic-list-item" data-id="">
+    <span data-text="name"></span>
+    <div class="actions">
+      <button class="button icon-button" data-action="edit-ingredient-inline">
+        <svg viewBox="0 0 24 24">
+          <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+        </svg>
+      </button>
+      <button class="button icon-button danger" data-action="delete-ingredient">
+        <svg viewBox="0 0 24 24">
+          <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+        </svg>
+      </button>
+    </div>
+  </li>
+</template>
+
+<template id="cooking-mode-template">
+  <section class="cooking-mode">
+    <div class="page-header" style="justify-content:center; text-align:center; flex-direction:column;">
+      <h2 data-text="recipe-name"></h2>
+      <p data-text="step-count"></p>
+    </div>
+    <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Step 1 of X">
+      <div data-element="progress-indicator"></div>
+    </div>
+    <div class="step-display" data-text="step-description"></div>
+    <div class="detail-section" data-container="final-notes" hidden>
+      <h3>Recipe Notes</h3>
+      <p data-text="notes" style="white-space: pre-wrap;"></p>
+    </div>
+  </section>
+</template>
+
+<template id="shopping-list-template">
+  <section>
+    <div class="page-header"><h2>Shopping List</h2></div>
+    <ul style="list-style:none; padding:0" data-list-target="shopping-list"></ul>
+  </section>
+</template>
+
+<template id="shopping-list-item-template">
+  <li class="shopping-list-item">
+    <div>
+      <strong data-text="name"></strong> — <span data-text="amount"></span>
+    </div>
+    <button class="button icon-button" data-action="toggle-shopping-item">
+      <svg viewBox="0 0 24 24">
+        <path d="M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+      </svg>
+    </button>
+  </li>
+</template>
+
+<script>
+  class DigitalPantryApp {
+    constructor() {
+      this.root = document.getElementById('app-root');
+      this.footer = document.getElementById('footer-actions');
+      this.toast = document.getElementById('toast-notification');
+      this.state = {};
+      this.currentState = {};
+      this.activeFilters = [];
+      this.wakeLock = null;
+      this.toastTimeout = null;
+      this.cookingState = {};
+      this.uiState = { collapsedSections: {} };
+    }
+
+    init() {
+      this.loadData();
+      document.body.addEventListener('click', e => this.handleEvent(e));
+      document.body.addEventListener('submit', e => this.handleFormSubmit(e));
+      document.body.addEventListener('change', e => {
+        if (e.target.matches('[data-dynamic-filter]')) {
+          this.addSearchFilter(e.target);
+        }
+      });
+      window.addEventListener('popstate', () => this.renderCurrentView());
+      this.renderCurrentView();
+    }
+
+    // --- STATE MANAGEMENT ---
+    loadData() {
+      const dataString = localStorage.getItem('digitalPantryData');
+      const defaultData = this.getInitialData();
+      let loadedData = {};
+
+      if (dataString) {
+        try {
+          loadedData = JSON.parse(dataString);
+        } catch (e) {
+          console.error('Error parsing localStorage data:', e);
+        }
+      }
+
+      this.state = { ...defaultData, ...loadedData };
+
+      const viewState = localStorage.getItem('digitalPantryView');
+      this.currentState = viewState ? JSON.parse(viewState) : { view: 'recipes', id: null };
+
+      const uiState = localStorage.getItem('digitalPantryUIState');
+      if (uiState) {
+        try {
+          this.uiState = JSON.parse(uiState);
+        } catch (e) {
+          console.error('Error parsing UI state:', e);
+        }
+      }
+
+      const cookingState = localStorage.getItem('digitalPantryCooking');
+      if (cookingState) {
+        try {
+          this.cookingState = JSON.parse(cookingState);
+          this.currentState = { view: 'cooking', id: this.cookingState.recipeId };
+        } catch (e) { console.error('Error parsing cooking state:', e); }
+      }
+    }
+
+    saveData() {
+      localStorage.setItem('digitalPantryData', JSON.stringify(this.state));
+      localStorage.setItem('digitalPantryView', JSON.stringify(this.currentState));
+      localStorage.setItem('digitalPantryUIState', JSON.stringify(this.uiState));
+      if (this.currentState.view === 'cooking') {
+        localStorage.setItem('digitalPantryCooking', JSON.stringify(this.cookingState));
+      } else {
+        localStorage.removeItem('digitalPantryCooking');
+      }
+    }
+
+    navigateToView(view, id = null) {
+      this.currentState = { view, id };
+      this.saveData();
+      this.renderCurrentView();
+      window.scrollTo(0, 0);
+    }
+
+    renderCurrentView() {
+      if (this.wakeLock) {
+        this.releaseWakeLock();
+      }
+      this.activeFilters = [];
+      this.root.innerHTML = '';
+      this.footer.innerHTML = '';
+
+      const { view, id } = this.currentState;
+      document.querySelectorAll('[data-view]').forEach(link => {
+        const isSelected = link.dataset.view === view || (view.includes('recipe') && link.dataset.view === 'recipes');
+        link.setAttribute('aria-selected', isSelected);
+      });
+
+      const routes = {
+        'recipes': () => id ? this.renderRecipeDetail(id) : this.renderRecipesList(),
+        'cupboard': () => this.renderCupboard(),
+        'ingredients': () => this.renderIngredientsList(),
+        'shopping-list': () => this.renderShoppingList(),
+        'add-recipe': () => this.renderRecipeForm(),
+        'edit-recipe': () => this.renderRecipeForm(id),
+        'cooking': () => this.startCookingMode(id)
+      };
+      (routes[view] || (() => this.navigateToView('recipes')))();
+    }
+
+    // --- EVENT HANDLING ---
+    handleEvent(event) {
+      const target = event.target.closest('[data-action]');
+      if (!target) {
+        return;
+      }
+
+      const { action, view, id } = target.dataset;
+      const actions = {
+        'navigate': () => {
+          event.preventDefault();
+          this.navigateToView(view, id ? parseInt(id) : null);
+        },
+        'delete-recipe': () => this.deleteRecipe(parseInt(id)),
+        'delete-ingredient': () => this.deleteIngredient(parseInt(id), target),
+        'cupboard-remove': () => this.removeFromCupboard(parseInt(id), target),
+        'add-to-shopping-list': () => this.addToShoppingList(target),
+        'remove-from-shopping-list': () => this.removeFromShoppingList(parseInt(id), target),
+        'clear-shopping-list': () => this.clearShoppingList(),
+        'edit-ingredient-inline': () => this.renderInlineIngredientEdit(parseInt(id), target),
+        'save-ingredient-inline': () => this.saveInlineIngredient(parseInt(id), target),
+        'toggle-search-widget': () => {
+          const widget = this.root.querySelector('[data-container="search-widget"]');
+          const isOpening = !widget.classList.contains('is-open');
+          target.setAttribute('aria-expanded', isOpening);
+          widget.classList.toggle('is-open');
+        },
+        'toggle-section': () => {
+          const section = target.dataset.section;
+          const recipeId = this.currentState.id;
+          const sectionEl = this.root.querySelector(`[data-collapsible="${section}"]`);
+          const isCollapsing = !sectionEl.classList.contains('collapsed');
+          sectionEl.classList.toggle('collapsed');
+          target.setAttribute('aria-expanded', !isCollapsing);
+          
+          // Save collapse state
+          if (!this.uiState.collapsedSections[recipeId]) {
+            this.uiState.collapsedSections[recipeId] = {};
+          }
+          this.uiState.collapsedSections[recipeId][section] = isCollapsing;
+          this.saveData();
+        },
+        'toggle-shopping-item': () => {
+          const ingredientId = parseInt(id);
+          const item = this.state.shoppingList.find(i => i.ingredientId === ingredientId);
+          if (item) {
+            item.checked = !item.checked;
+            this.saveData();
+            
+            // Find the list item and button (target might be the li or the button)
+            const listItem = target.classList.contains('shopping-list-item') ? target : target.closest('.shopping-list-item');
+            const button = listItem ? listItem.querySelector('button') : target;
+            
+            // Update UI
+            if (item.checked) {
+              if (listItem) listItem.classList.add('checked');
+              if (button && button.tagName === 'BUTTON') {
+                button.classList.remove('primary');
+                button.classList.add('success');
+                button.innerHTML = `
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                  </svg>
+                `;
+              }
+            } else {
+              if (listItem) listItem.classList.remove('checked');
+              if (button && button.tagName === 'BUTTON') {
+                button.classList.remove('success');
+                button.classList.add('primary');
+                button.innerHTML = `
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                  </svg>
+                `;
+              }
+            }
+          }
+        },
+        'remove-search-filter': () => this.removeSearchFilter(parseInt(id)),
+        'cooking-nav-next': () => this.navigateCookingStep(1),
+        'cooking-nav-prev': () => this.navigateCookingStep(-1),
+        'exit-cooking': () => this.navigateToView('recipes', this.cookingState.recipeId),
+        'form-add-ingredient-row': () => this.addIngredientRowToForm(),
+        'form-remove-row': () => target.closest('.dynamic-list-item').remove(),
+        'form-add-instruction-row': () => this.addInstructionRowToForm()
+      };
+
+      if (actions[action]) {
+        if (action !== 'navigate') {
+          event.preventDefault();
+        }
+        actions[action]();
+      }
+    }
+
+    handleFormSubmit(event) {
+      event.preventDefault();
+      const form = event.target.closest('form');
+      if (!form) {
+        return;
+      }
+      const action = form.dataset.action;
+
+      const actions = {
+        'save-recipe': () => this.saveRecipe(form),
+        'cupboard-add': () => this.addToCupboard(form),
+        'add-ingredient-inline': () => this.addInlineIngredient(form)
+      };
+
+      if (actions[action]) {
+        actions[action]();
+      }
+    }
+
+    // --- RENDER METHODS ---
+
+    renderRecipesList() {
+      const view = this.cloneTemplate('recipes-list-template');
+      const list = view.querySelector('[data-list-target="recipes"]');
+
+      if (this.state.recipes.length === 0) {
+        list.innerHTML = `<div class="empty-state"><p>No recipes yet. Let's create one!</p></div>`;
+      } else {
+        this.state.recipes
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .forEach(recipe => list.appendChild(this.createRecipeCard(recipe)));
+      }
+
+      this.root.appendChild(view);
+      this.addFilterDropdown();
+      this.footer.innerHTML = `<button class="button primary" data-action="navigate" data-view="add-recipe">Add New Recipe</button>`;
+    }
+
+    renderRecipeDetail(id) {
+      const recipe = this.state.recipes.find(r => r.id === id);
+      if (!recipe) {
+        return this.navigateToView('recipes');
+      }
+
+      const view = this.cloneTemplate('recipe-detail-template');
+      view.querySelector('[data-text="name"]').textContent = recipe.name;
+      view.querySelector('[data-text="category"]').textContent = recipe.category;
+      view.querySelector('[data-text="servings"]').textContent = recipe.servings;
+
+      if (recipe.notes) {
+        view.querySelector('[data-text="notes"]').textContent = recipe.notes;
+      } else {
+        view.querySelector('[data-container="notes"]').remove();
+      }
+
+      recipe.tags.forEach(tag => view.querySelector('[data-container="tags"]').appendChild(this.createBadge(tag)));
+
+      const shoppingListIds = new Set(this.state.shoppingList.map(i => i.ingredientId));
+      const ingredientsList = view.querySelector('[data-list-target="ingredients"]');
+      recipe.ingredients.forEach(ing => {
+        const ingredient = this.state.ingredients.find(i => i.id === ing.ingredientId);
+        const li = document.createElement('li');
+        li.className = 'ingredient-list-item';
+        li.style.cursor = 'pointer';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.innerHTML = `<strong>${ingredient?.name || 'Unknown'}</strong> — ${ing.amount} ${ing.measurement || ''}`;
+        
+        const actionsDiv = document.createElement('div');
+        actionsDiv.style.position = 'relative';
+        actionsDiv.style.zIndex = '2';
+
+        if (shoppingListIds.has(ing.ingredientId)) {
+          // Shopping cart with X (remove from list)
+          li.dataset.action = 'remove-from-shopping-list';
+          li.dataset.id = ing.ingredientId;
+          
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'icon-button danger';
+          removeBtn.dataset.action = 'remove-from-shopping-list';
+          removeBtn.dataset.id = ing.ingredientId;
+          removeBtn.title = 'Remove from shopping list';
+          removeBtn.setAttribute('aria-label', `Remove ${ingredient?.name || 'ingredient'} from shopping list`);
+          removeBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18M16,11L18.78,6H6.14L8.5,11H16M14.5,7L12.5,10L10.5,7L12.5,4L14.5,7Z"/>
+            </svg>
+          `;
+          actionsDiv.appendChild(removeBtn);
+        } else {
+          // Shopping cart with plus (add to list)
+          li.dataset.action = 'add-to-shopping-list';
+          li.dataset.id = ing.ingredientId;
+          li.dataset.amount = ing.amount;
+          li.dataset.measurement = ing.measurement || '';
+          li.dataset.recipeName = recipe.name;
+          
+          const addToListBtn = document.createElement('button');
+          addToListBtn.className = 'icon-button primary';
+          addToListBtn.dataset.action = 'add-to-shopping-list';
+          addToListBtn.dataset.id = ing.ingredientId;
+          addToListBtn.dataset.amount = ing.amount;
+          addToListBtn.dataset.measurement = ing.measurement || '';
+          addToListBtn.dataset.recipeName = recipe.name;
+          addToListBtn.title = 'Add to shopping list';
+          addToListBtn.setAttribute('aria-label', `Add ${ingredient?.name || 'ingredient'} to shopping list`);
+          addToListBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M11,9H13V6H16V4H13V1H11V4H8V6H11M7,18A2,2 0 0,0 5,20A2,2 0 0,0 7,22A2,2 0 0,0 9,20A2,2 0 0,0 7,18M17,18A2,2 0 0,0 15,20A2,2 0 0,0 17,22A2,2 0 0,0 19,20A2,2 0 0,0 17,18M7.17,14.75L7.2,14.63L8.1,13H15.55C16.3,13 16.96,12.59 17.3,11.97L21,5.48V5A1,1 0 0,0 20,4H5.21L4.27,2H1V4H3L6.6,11.59L5.25,14.04C5.09,14.32 5,14.65 5,15A2,2 0 0,0 7,17H19V15H7.42C7.29,15 7.17,14.89 7.17,14.75Z"/>
+            </svg>
+          `;
+          actionsDiv.appendChild(addToListBtn);
+        }
+        li.appendChild(infoDiv);
+        li.appendChild(actionsDiv);
+        ingredientsList.appendChild(li);
+      });
+
+      const stepsList = view.querySelector('[data-list-target="steps"]');
+      recipe.instructions.forEach(step => {
+        const li = document.createElement('li');
+        li.textContent = step;
+        stepsList.appendChild(li);
+      });
+
+      this.root.appendChild(view);
+      
+      // Set the edit button's data-id attribute
+      this.root.querySelector('[data-action="navigate"][data-view="edit-recipe"]').dataset.id = id;
+      
+      // Set the start cooking button's data-id attribute in the instructions header
+      this.root.querySelector('.detail-section h3 [data-action="navigate"][data-view="cooking"]').dataset.id = id;
+      
+      // Restore collapse state
+      const recipeCollapseState = this.uiState.collapsedSections[id] || {};
+      Object.keys(recipeCollapseState).forEach(sectionName => {
+        if (recipeCollapseState[sectionName]) {
+          const sectionEl = this.root.querySelector(`[data-collapsible="${sectionName}"]`);
+          const toggleBtn = this.root.querySelector(`[data-section="${sectionName}"]`);
+          if (sectionEl && toggleBtn) {
+            sectionEl.classList.add('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+          }
+        }
+      });
+      
+      // Remove footer since start cooking is now in the instructions header
+      this.footer.innerHTML = '';
+    }
+
+    renderRecipeForm(id = null) {
+      const isEditing = id !== null;
+      const recipe = isEditing ? this.state.recipes.find(r => r.id === id) : { name: '', servings: 1, category: '', tags: [], ingredients: [{}], instructions: [''], notes: '' };
+      if (isEditing && !recipe) {
+        return this.navigateToView('recipes');
+      }
+
+      const view = this.cloneTemplate('recipe-form-template');
+      const form = view.querySelector('form');
+      form.dataset.id = id || '';
+      view.querySelector('h2').textContent = isEditing ? `Edit: ${recipe.name}` : 'Add New Recipe';
+      form.elements.name.value = recipe.name;
+      form.elements.servings.value = recipe.servings;
+      form.elements.category.value = recipe.category;
+      form.elements.tags.value = recipe.tags.join(', ');
+      form.elements.notes.value = recipe.notes;
+
+      const ingredientsContainer = view.querySelector('[data-list-target="ingredients"]');
+      (recipe.ingredients.length ? recipe.ingredients : [{}]).forEach(ing => this.addIngredientRowToForm(ingredientsContainer, ing));
+
+      const stepsContainer = view.querySelector('[data-list-target="steps"]');
+      (recipe.instructions.length ? recipe.instructions : ['']).forEach(step => this.addInstructionRowToForm(stepsContainer, step));
+
+      this.root.appendChild(view);
+
+      const backTarget = isEditing ? `data-view="recipes" data-id="${id}"` : `data-view="recipes"`;
+      
+      // Add back link at the top of the form
+      const backLink = document.createElement('div');
+      backLink.style.marginBottom = 'var(--spacing-md)';
+      backLink.innerHTML = `<button class="button secondary" data-action="navigate" ${backTarget}>← Back to Recipe</button>`;
+      this.root.insertBefore(backLink, this.root.firstChild);
+      
+      let footerHTML = `<button type="submit" form="recipe-form" class="button primary">Save Recipe</button>`;
+      if (isEditing) {
+        footerHTML += `<button class="button danger" data-action="delete-recipe" data-id="${id}">Delete Recipe</button>`;
+      }
+      this.footer.innerHTML = footerHTML;
+    }
+
+    renderIngredientsList() {
+      const view = this.cloneTemplate('ingredients-list-template');
+      const list = view.querySelector('[data-list-target="ingredients"]');
+      if (this.state.ingredients.length === 0) {
+        list.innerHTML = `<li class="empty-state"><p>No ingredients defined yet.</p></li>`;
+      } else {
+        this.state.ingredients
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .forEach(ing => list.appendChild(this.createIngredientListItem(ing)));
+      }
+      this.root.appendChild(view);
+    }
+
+    renderCupboard() {
+      const view = this.cloneTemplate('cupboard-view-template');
+      view.querySelector('select[name="ingredientId"]').innerHTML = `<option value="">Select an ingredient...</option>${this.getIngredientOptions()}`;
+
+      const list = view.querySelector('[data-list-target="cupboard"]');
+      if (this.state.cupboard.length === 0) {
+        list.innerHTML = `<li class="empty-state"><p>Your cupboard is empty. Add some ingredients you have on hand.</p></li>`;
+      } else {
+        this.state.cupboard
+          .map(item => ({ ...item, ingredient: this.state.ingredients.find(i => i.id === item.ingredientId) }))
+          .filter(item => item.ingredient)
+          .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
+          .forEach(item => list.appendChild(this.createCupboardListItem(item)));
+      }
+      this.root.appendChild(view);
+    }
+
+    renderShoppingList() {
+      const view = this.cloneTemplate('shopping-list-template');
+      const list = view.querySelector('[data-list-target="shopping-list"]');
+      if (this.state.shoppingList.length === 0) {
+        list.innerHTML = `<li class="empty-state"><p>Your shopping list is empty.</p></li>`;
+      } else {
+        // Group items by recipe
+        const itemsByRecipe = {};
+        this.state.shoppingList
+          .map(item => ({ ...item, ingredient: this.state.ingredients.find(i => i.id === item.ingredientId) }))
+          .filter(item => item.ingredient)
+          .forEach(item => {
+            if (!itemsByRecipe[item.recipeName]) {
+              itemsByRecipe[item.recipeName] = [];
+            }
+            itemsByRecipe[item.recipeName].push(item);
+          });
+
+        // Render each recipe group
+        Object.keys(itemsByRecipe).sort().forEach(recipeName => {
+          const recipeSection = document.createElement('li');
+          recipeSection.style.marginBottom = 'var(--spacing-lg)';
+          
+          const recipeHeader = document.createElement('h3');
+          recipeHeader.textContent = recipeName;
+          recipeHeader.style.color = 'var(--color-primary)';
+          recipeHeader.style.marginBottom = 'var(--spacing-sm)';
+          recipeSection.appendChild(recipeHeader);
+          
+          const recipeList = document.createElement('ul');
+          recipeList.style.listStyle = 'none';
+          recipeList.style.padding = '0';
+          
+          itemsByRecipe[recipeName]
+            .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
+            .forEach(item => {
+              const itemEl = this.cloneTemplate('shopping-list-item-template').firstElementChild;
+              itemEl.querySelector('[data-text="name"]').textContent = item.ingredient.name;
+              itemEl.querySelector('[data-text="amount"]').textContent = `${item.amount} ${item.measurement || ''}`.trim();
+              
+              // Apply checked state
+              if (item.checked) {
+                itemEl.classList.add('checked');
+              }
+              
+              const toggleBtn = itemEl.querySelector('button');
+              toggleBtn.dataset.action = 'toggle-shopping-item';
+              toggleBtn.dataset.id = item.ingredientId;
+              toggleBtn.setAttribute('aria-label', item.checked ? `Uncheck ${item.ingredient.name}` : `Check ${item.ingredient.name}`);
+              
+              // Make whole item clickable
+              itemEl.dataset.action = 'toggle-shopping-item';
+              itemEl.dataset.id = item.ingredientId;
+              itemEl.style.cursor = 'pointer';
+              
+              if (item.checked) {
+                toggleBtn.className = 'icon-button success';
+                toggleBtn.innerHTML = `
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                  </svg>
+                `;
+              } else {
+                toggleBtn.className = 'icon-button primary';
+                toggleBtn.innerHTML = `
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                  </svg>
+                `;
+              }
+              
+              recipeList.appendChild(itemEl);
+            });
+          
+          recipeSection.appendChild(recipeList);
+          list.appendChild(recipeSection);
+        });
+      }
+      this.root.appendChild(view);
+
+      if (this.state.shoppingList.length > 0) {
+        this.footer.innerHTML = `<button class="button danger" data-action="clear-shopping-list">Clear Entire List</button>`;
+      }
+    }
+
+    // --- CRUD & LOGIC ---
+
+    saveRecipe(form) {
+      const formData = new FormData(form);
+      const id = form.dataset.id ? parseInt(form.dataset.id) : null;
+
+      const recipeData = {
+        id: id || Date.now(),
+        name: formData.get('name'),
+        servings: parseInt(formData.get('servings')),
+        category: formData.get('category'),
+        tags: formData.get('tags').split(',').map(tag => tag.trim()).filter(Boolean),
+        ingredients: Array.from(form.querySelectorAll('.ingredient-row')).map(row => ({
+          ingredientId: parseInt(row.querySelector('[name="ingredientId"]').value),
+          amount: row.querySelector('[name="amount"]').value,
+          measurement: row.querySelector('[name="measurement"]').value
+        })).filter(ing => ing.ingredientId && ing.amount),
+        instructions: Array.from(form.querySelectorAll('[name="instruction"]')).map(input => input.value.trim()).filter(Boolean),
+        notes: formData.get('notes')
+      };
+
+      if (!recipeData.name || !recipeData.servings) {
+        this.showToast('Please fill out all required fields.', 'error');
+        return;
+      }
+
+      if (id) {
+        const index = this.state.recipes.findIndex(r => r.id === id);
+        this.state.recipes[index] = recipeData;
+      } else {
+        this.state.recipes.push(recipeData);
+      }
+      this.saveData();
+      this.showToast('Recipe saved!');
+      this.navigateToView('recipes', recipeData.id);
+    }
+
+    deleteRecipe(id) {
+      if (!confirm('Are you sure you want to permanently delete this recipe?')) {
+        return;
+      }
+      this.state.recipes = this.state.recipes.filter(r => r.id !== id);
+      this.saveData();
+      this.showToast('Recipe deleted.');
+      this.navigateToView('recipes');
+    }
+
+    addInlineIngredient(form) {
+      const name = new FormData(form).get('name').trim();
+      if (!name) {
+        return;
+      }
+      if (this.state.ingredients.some(i => i.name.toLowerCase() === name.toLowerCase())) {
+        this.showToast('An ingredient with this name already exists.', 'error');
+        return;
+      }
+      const newIngredient = { id: Date.now(), name };
+      this.state.ingredients.push(newIngredient);
+      this.saveData();
+      
+      // Add the new ingredient inline instead of re-rendering
+      const list = this.root.querySelector('[data-list-target="ingredients"]');
+      const emptyState = list.querySelector('.empty-state');
+      if (emptyState) {
+        emptyState.remove();
+      }
+      
+      // Insert in alphabetical order
+      const newItem = this.createIngredientListItem(newIngredient);
+      const items = Array.from(list.children);
+      const insertIndex = items.findIndex(item => {
+        const itemName = item.querySelector('[data-text="name"]').textContent;
+        return itemName.localeCompare(name) > 0;
+      });
+      
+      if (insertIndex === -1) {
+        list.appendChild(newItem);
+      } else {
+        list.insertBefore(newItem, items[insertIndex]);
+      }
+      
+      this.showToast('Ingredient added.');
+      form.reset();
+    }
+
+    deleteIngredient(id, target) {
+      const isUsed = this.state.recipes.some(recipe => recipe.ingredients.some(ing => ing.ingredientId === id));
+      if (isUsed) {
+        this.showToast('Cannot delete: Ingredient is used in a recipe.', 'error');
+        return;
+      }
+      this.state.ingredients = this.state.ingredients.filter(i => i.id !== id);
+      this.saveData();
+      target.closest('li').remove();
+      this.showToast('Ingredient deleted.');
+    }
+
+    renderInlineIngredientEdit(id, target) {
+      const li = target.closest('li');
+      const ingredient = this.state.ingredients.find(i => i.id === id);
+      const inputId = `edit-ingredient-${id}`;
+      li.className = 'generic-list-item';
+      li.style.display = 'flex';
+      li.style.alignItems = 'flex-end';
+      li.innerHTML = `
+            <div style="flex: 1;">
+                <label for="${inputId}" style="display: block; margin-bottom: var(--spacing-xs); font-size: 0.9rem; font-weight: 500; color: var(--color-on-background);">Edit Ingredient Name</label>
+                <input type="text" id="${inputId}" name="name" value="${ingredient.name}" required>
+            </div>
+            <div class="actions">
+                <button class="icon-button success" data-action="save-ingredient-inline" data-id="${id}" title="Save" aria-label="Save changes">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/>
+                    </svg>
+                </button>
+            </div>`;
+      const input = li.querySelector('input');
+      input.focus();
+      input.select();
+      
+      // Allow Enter key to save
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          li.querySelector('[data-action="save-ingredient-inline"]').click();
+        } else if (e.key === 'Escape') {
+          this.cancelInlineIngredientEdit(id, li);
+        }
+      });
+    }
+
+    saveInlineIngredient(id, target) {
+      const li = target.closest('li');
+      const newName = li.querySelector('input[name="name"]').value.trim();
+      if (!newName) {
+        this.showToast('Ingredient name cannot be empty.', 'error');
+        return;
+      }
+      if (this.state.ingredients.some(i => i.name.toLowerCase() === newName.toLowerCase() && i.id !== id)) {
+        this.showToast('An ingredient with this name already exists.', 'error');
+        return;
+      }
+      const ingredient = this.state.ingredients.find(i => i.id === id);
+      ingredient.name = newName;
+      this.saveData();
+      li.replaceWith(this.createIngredientListItem(ingredient));
+      this.showToast('Ingredient updated.');
+    }
+
+    cancelInlineIngredientEdit(id, element) {
+      const li = element.closest ? element.closest('li') : element;
+      const ingredient = this.state.ingredients.find(i => i.id === id);
+      li.replaceWith(this.createIngredientListItem(ingredient));
+    }
+
+    addToCupboard(form) {
+      const formData = new FormData(form);
+      const ingredientId = parseInt(formData.get('ingredientId'));
+      const amount = formData.get('amount');
+      const measurement = formData.get('measurement');
+      if (!ingredientId || !amount) {
+        return;
+      }
+
+      const existingIndex = this.state.cupboard.findIndex(i => i.ingredientId === ingredientId);
+      if (existingIndex > -1) {
+        this.state.cupboard[existingIndex] = { ingredientId, amount, measurement };
+      } else {
+        this.state.cupboard.push({ ingredientId, amount, measurement });
+      }
+      this.saveData();
+
+      // --- Efficient DOM update ---
+      const list = this.root.querySelector('[data-list-target="cupboard"]');
+      const emptyState = list.querySelector('.empty-state');
+      if (emptyState) {
+        emptyState.remove();
+      }
+
+      // Remove old item if it exists, then add new/updated item and re-sort
+      const oldLi = list.querySelector(`[data-id="${ingredientId}"]`);
+      if (oldLi) {
+        oldLi.remove();
+      }
+
+      const itemData = { ingredientId, amount, measurement, ingredient: this.state.ingredients.find(i => i.id === ingredientId) };
+      list.appendChild(this.createCupboardListItem(itemData));
+
+      Array.from(list.children)
+        .sort((a, b) => a.dataset.name.localeCompare(b.dataset.name))
+        .forEach(li => list.appendChild(li));
+
+      form.reset();
+      this.showToast('Cupboard updated.');
+    }
+
+    removeFromCupboard(id, target) {
+      this.state.cupboard = this.state.cupboard.filter(i => i.ingredientId !== id);
+      this.saveData();
+      target.closest('li').remove();
+      if (!this.root.querySelector('[data-list-target="cupboard"]').hasChildNodes()) {
+        this.renderCupboard(); // Re-render to show empty state
+      }
+      this.showToast('Removed from cupboard.');
+    }
+
+    addToShoppingList(target) {
+      const { id, amount, measurement, recipeName } = target.dataset;
+      const ingredientId = parseInt(id);
+
+      if (this.state.shoppingList.some(item => item.ingredientId === ingredientId)) {
+        return;
+      }
+      this.state.shoppingList.push({ ingredientId, amount, measurement, recipeName });
+      this.saveData();
+
+      // Find the list item and button (target might be the li or the button)
+      const listItem = target.classList.contains('ingredient-list-item') ? target : target.closest('.ingredient-list-item');
+      const button = listItem ? listItem.querySelector('button') : target;
+      
+      // Update list item
+      if (listItem) {
+        listItem.dataset.action = 'remove-from-shopping-list';
+        listItem.dataset.id = ingredientId;
+        // Remove other data attributes since they're not needed for remove
+        delete listItem.dataset.amount;
+        delete listItem.dataset.measurement;
+        delete listItem.dataset.recipeName;
+      }
+
+      // Update icon button to show remove state
+      if (button && button.tagName === 'BUTTON') {
+        button.className = 'icon-button danger';
+        button.dataset.action = 'remove-from-shopping-list';
+        button.dataset.id = ingredientId;
+        button.title = 'Remove from shopping list';
+        const ingredientName = button.getAttribute('aria-label')?.split(' to shopping')[0].replace('Add ', '') || 'ingredient';
+        button.setAttribute('aria-label', `Remove ${ingredientName} from shopping list`);
+        button.innerHTML = `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18M16,11L18.78,6H6.14L8.5,11H16M14.5,7L12.5,10L10.5,7L12.5,4L14.5,7Z"/>
+          </svg>
+        `;
+      }
+      
+      this.showToast('Added to shopping list.');
+    }
+
+    removeFromShoppingList(id, target) {
+      this.state.shoppingList = this.state.shoppingList.filter(item => item.ingredientId !== id);
+      this.saveData();
+
+      if (this.currentState.view === 'shopping-list') {
+        // Find the list item (target might be the li or the button)
+        const listItem = target.closest('li');
+        if (listItem) {
+          listItem.remove();
+        }
+        if (this.state.shoppingList.length === 0) {
+          this.renderShoppingList();
+        }
+      } else { // On recipe detail page
+        // Find the list item and button (target might be the li or the button)
+        const listItem = target.classList.contains('ingredient-list-item') ? target : target.closest('.ingredient-list-item');
+        const button = listItem ? listItem.querySelector('button') : target;
+        
+        // Update list item - get the recipe ingredient data to restore amount/measurement
+        if (listItem) {
+          const recipe = this.state.recipes.find(r => r.id === this.currentState.recipeId);
+          const recipeIngredient = recipe?.ingredients.find(i => i.ingredientId === id);
+          
+          if (recipeIngredient) {
+            listItem.dataset.action = 'add-to-shopping-list';
+            listItem.dataset.id = id;
+            listItem.dataset.amount = recipeIngredient.amount;
+            listItem.dataset.measurement = recipeIngredient.measurement || '';
+            listItem.dataset.recipeName = recipe.name;
+          }
+        }
+        
+        // Update icon button to show add state
+        if (button && button.tagName === 'BUTTON') {
+          const recipe = this.state.recipes.find(r => r.id === this.currentState.recipeId);
+          const recipeIngredient = recipe?.ingredients.find(i => i.ingredientId === id);
+          
+          button.className = 'icon-button primary';
+          button.dataset.action = 'add-to-shopping-list';
+          button.dataset.id = id;
+          if (recipeIngredient) {
+            button.dataset.amount = recipeIngredient.amount;
+            button.dataset.measurement = recipeIngredient.measurement || '';
+            button.dataset.recipeName = recipe.name;
+          }
+          button.title = 'Add to shopping list';
+          const ingredientName = button.getAttribute('aria-label')?.split(' from shopping')[0].replace('Remove ', '') || 'ingredient';
+          button.setAttribute('aria-label', `Add ${ingredientName} to shopping list`);
+          button.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M11,9H13V6H16V4H13V1H11V4H8V6H11M7,18A2,2 0 0,0 5,20A2,2 0 0,0 7,22A2,2 0 0,0 9,20A2,2 0 0,0 7,18M17,18A2,2 0 0,0 15,20A2,2 0 0,0 17,22A2,2 0 0,0 19,20A2,2 0 0,0 17,18M7.17,14.75L7.2,14.63L8.1,13H15.55C16.3,13 16.96,12.59 17.3,11.97L21,5.48V5A1,1 0 0,0 20,4H5.21L4.27,2H1V4H3L6.6,11.59L5.25,14.04C5.09,14.32 5,14.65 5,15A2,2 0 0,0 7,17H19V15H7.42C7.29,15 7.17,14.89 7.17,14.75Z"/>
+            </svg>
+          `;
+        }
+      }
+      this.showToast('Removed from shopping list.');
+    }
+
+    clearShoppingList() {
+      if (!confirm('Are you sure you want to clear your entire shopping list?')) {
+        return;
+      }
+      this.state.shoppingList = [];
+      this.saveData();
+      this.renderShoppingList();
+      this.showToast('Shopping list cleared.');
+    }
+
+    // --- COOKING MODE ---
+    async startCookingMode(id) {
+      if ('wakeLock' in navigator) {
+        try { this.wakeLock = await navigator.wakeLock.request('screen'); } catch (err) { console.error(`${err.name}, ${err.message}`); }
+      }
+
+      const recipe = this.state.recipes.find(r => r.id === id);
+      if (!this.cookingState.recipeId || this.cookingState.recipeId !== id) {
+        this.cookingState = {
+          recipeId: id,
+          currentStep: 0,
+          totalSteps: recipe.instructions.length
+        };
+      }
+
+      const view = this.cloneTemplate('cooking-mode-template');
+      view.querySelector('[data-text="recipe-name"]').textContent = `Cooking: ${recipe.name}`;
+      this.root.appendChild(view);
+      
+      // Set up footer navigation
+      this.footer.innerHTML = `
+        <button class="button secondary" data-action="cooking-nav-prev">Previous</button>
+        <button class="button secondary" data-action="exit-cooking">Exit Cooking Mode</button>
+        <button class="button primary" data-action="cooking-nav-next">Next</button>
+      `;
+      
+      this.renderCookingStep();
+      this.saveData();
+    }
+
+    renderCookingStep() {
+      const { recipeId, currentStep, totalSteps } = this.cookingState;
+      const recipe = this.state.recipes.find(r => r.id === recipeId);
+      const progress = totalSteps > 0 ? ((currentStep + 1) / totalSteps) * 100 : 0;
+      const progressText = `Step ${currentStep + 1} of ${totalSteps}`;
+
+      const progressBar = this.root.querySelector('[role="progressbar"]');
+      progressBar.setAttribute('aria-valuenow', progress);
+      progressBar.setAttribute('aria-valuetext', progressText);
+
+      this.root.querySelector('[data-text="step-count"]').textContent = progressText;
+      this.root.querySelector('[data-element="progress-indicator"]').style.width = `${progress}%`;
+      this.root.querySelector('[data-text="step-description"]').textContent = recipe.instructions[currentStep];
+
+      const nextButton = this.footer.querySelector('[data-action="cooking-nav-next"]');
+      const prevButton = this.footer.querySelector('[data-action="cooking-nav-prev"]');
+      const notesContainer = this.root.querySelector('[data-container="final-notes"]');
+
+      notesContainer.hidden = true;
+      nextButton.textContent = 'Next';
+      nextButton.onclick = null; // Revert to default event delegation
+
+      if (currentStep === totalSteps - 1) { // Last step
+        if (recipe.notes) {
+          notesContainer.hidden = false;
+          notesContainer.querySelector('[data-text="notes"]').textContent = recipe.notes;
+        }
+        nextButton.textContent = 'Finish';
+        nextButton.onclick = () => this.navigateToView('recipes', this.cookingState.recipeId);
+      }
+
+      prevButton.disabled = currentStep === 0;
+    }
+
+    navigateCookingStep(direction) {
+      const { currentStep, totalSteps } = this.cookingState;
+      const newStep = currentStep + direction;
+      if (newStep >= 0 && newStep < totalSteps) {
+        this.cookingState.currentStep = newStep;
+        this.renderCookingStep();
+        this.saveData();
+      }
+    }
+
+    releaseWakeLock() {
+      if (this.wakeLock) {
+        this.wakeLock.release();
+        this.wakeLock = null;
+      }
+    }
+
+    // --- UTILITY & HELPER METHODS ---
+    cloneTemplate(id) { return document.getElementById(id).content.cloneNode(true); }
+
+    showToast(message, type = 'success') {
+      if (this.toastTimeout) {
+        clearTimeout(this.toastTimeout);
+      }
+      this.toast.textContent = message;
+      this.toast.className = 'toast-notification';
+      this.toast.classList.add('show');
+      if (type === 'error') {
+        this.toast.classList.add('error');
+      }
+      this.toastTimeout = setTimeout(() => this.toast.classList.remove('show'), 3000);
+    }
+
+    getIngredientOptions(selectedId = null) {
+      return this.state.ingredients
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(ing => `<option value="${ing.id}" ${ing.id === selectedId ? 'selected' : ''}>${ing.name}</option>`)
+        .join('');
+    }
+
+    createBadge(innerHTML) {
+      const b = document.createElement('span');
+      b.className = 'badge';
+      b.innerHTML = innerHTML;
+      return b;
+    }
+
+    createButton(text, type, action, id) {
+      const btn = document.createElement('button');
+      btn.className = `button ${type}`;
+      btn.textContent = text;
+      btn.dataset.action = action;
+      btn.dataset.id = id;
+      return btn;
+    }
+
+    createRecipeCard(recipe) {
+      const cardEl = this.cloneTemplate('recipe-card-template').firstElementChild;
+      cardEl.dataset.id = recipe.id;
+      const link = cardEl.querySelector('[data-action="navigate"]');
+      link.dataset.view = 'recipes';
+      link.dataset.id = recipe.id;
+      cardEl.querySelector('[data-text="name"]').textContent = recipe.name;
+      cardEl.querySelector('[data-text="summary"]').textContent = `Serves ${recipe.servings} | ${recipe.ingredients.length} ingredients`;
+      const tagsContainer = cardEl.querySelector('[data-container="tags"]');
+      recipe.tags.forEach(tag => tagsContainer.appendChild(this.createBadge(tag)));
+      tagsContainer.appendChild(this.createBadge(recipe.category));
+      return cardEl;
+    }
+
+    createIngredientListItem(ing) {
+      const itemEl = this.cloneTemplate('ingredient-item-template').firstElementChild;
+      itemEl.dataset.id = ing.id;
+      itemEl.querySelector('[data-text="name"]').textContent = ing.name;
+
+      const editBtn = itemEl.querySelector('[data-action="edit-ingredient-inline"]');
+      editBtn.dataset.id = ing.id;
+      editBtn.setAttribute('aria-label', `Edit ${ing.name}`);
+
+      const deleteBtn = itemEl.querySelector('[data-action="delete-ingredient"]');
+      deleteBtn.dataset.id = ing.id;
+      deleteBtn.setAttribute('aria-label', `Delete ${ing.name}`);
+
+      return itemEl;
+    }
+
+    createCupboardListItem(item) {
+      const itemEl = this.cloneTemplate('cupboard-item-template').firstElementChild;
+      itemEl.dataset.id = item.ingredientId;
+      itemEl.dataset.name = item.ingredient.name; // For sorting
+      itemEl.querySelector('[data-text="name"]').textContent = item.ingredient.name;
+      itemEl.querySelector('[data-text="details"]').textContent = `${item.amount} ${item.measurement || ''}`.trim();
+      itemEl.querySelector('[data-action="cupboard-remove"]').dataset.id = item.ingredientId;
+      return itemEl;
+    }
+
+    addIngredientRowToForm(container = null, data = {}) {
+      container = container || this.root.querySelector('[data-list-target="ingredients"]');
+      const row = this.cloneTemplate('ingredient-form-row-template').firstElementChild;
+      row.querySelector('select').innerHTML = `<option value="">Select ingredient...</option>` + this.getIngredientOptions(data.ingredientId);
+      row.querySelector('[name="amount"]').value = data.amount || '';
+      row.querySelector('[name="measurement"]').value = data.measurement || '';
+      container.appendChild(row);
+    }
+
+    addInstructionRowToForm(container = null, data = '') {
+      container = container || this.root.querySelector('[data-list-target="steps"]');
+      const row = this.cloneTemplate('instruction-form-row-template').firstElementChild;
+      row.querySelector('textarea').value = data;
+      container.appendChild(row);
+    }
+
+    addSearchFilter(selectElement) {
+      const id = parseInt(selectElement.value);
+      if (!id || this.activeFilters.includes(id)) {
+        return;
+      }
+      this.activeFilters.push(id);
+      this.renderActiveFilters();
+      this.addFilterDropdown();
+      this.filterRecipeList();
+      selectElement.parentElement.remove();
+    }
+
+    removeSearchFilter(id) {
+      this.activeFilters = this.activeFilters.filter(filterId => filterId !== id);
+      this.renderActiveFilters();
+      this.root.querySelector('#filter-dropdowns').innerHTML = ''; // Clear and re-add
+      this.addFilterDropdown();
+      this.filterRecipeList();
+    }
+
+    renderActiveFilters() {
+      const container = this.root.querySelector('#active-filters');
+      container.innerHTML = '';
+      if (this.activeFilters.length === 0) {
+        container.innerHTML = '<p>No filters applied. Showing all recipes.</p>';
+        return;
+      }
+      this.activeFilters.forEach(id => {
+        const ingredient = this.state.ingredients.find(i => i.id === id);
+        if (ingredient) {
+          const badgeHTML = `${ingredient.name} <button class="filter-badge-remove" data-action="remove-search-filter" data-id="${id}" aria-label="Remove ${ingredient.name} filter">&times;</button>`;
+          container.appendChild(this.createBadge(badgeHTML));
+        }
+      });
+    }
+
+    addFilterDropdown() {
+      const container = this.root.querySelector('#filter-dropdowns');
+      if (!container) {
+        return;
+      }
+      const availableOptions = this.state.ingredients.filter(ing => !this.activeFilters.includes(ing.id));
+      if (availableOptions.length === 0) {
+        return;
+      }
+
+      const select = document.createElement('select');
+      select.dataset.dynamicFilter = 'true';
+      select.setAttribute('aria-label', 'Add ingredient filter');
+      select.innerHTML = `<option value="">Add an ingredient filter...</option>` +
+        availableOptions.sort((a, b) => a.name.localeCompare(b.name))
+          .map(ing => `<option value="${ing.id}">${ing.name}</option>`).join('');
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'select-wrapper';
+      wrapper.appendChild(select);
+      container.appendChild(wrapper);
+    }
+
+    filterRecipeList() {
+      const recipeCards = this.root.querySelectorAll('[data-list-target="recipes"] .card');
+      let visibleCount = 0;
+      recipeCards.forEach(card => {
+        if (this.activeFilters.length === 0) {
+          card.hidden = false;
+          visibleCount++;
+          return;
+        }
+        const recipeId = parseInt(card.dataset.id);
+        const recipe = this.state.recipes.find(r => r.id === recipeId);
+        const recipeIngredientIds = recipe.ingredients.map(i => i.ingredientId);
+        const canMake = this.activeFilters.every(filterId => recipeIngredientIds.includes(filterId));
+        card.hidden = !canMake;
+        if (canMake) {
+          visibleCount++;
+        }
+      });
+
+      let emptyState = this.root.querySelector('.search-empty-state');
+      if (visibleCount === 0 && this.activeFilters.length > 0) {
+        if (!emptyState) {
+          emptyState = document.createElement('div');
+          emptyState.className = 'empty-state search-empty-state';
+          emptyState.innerHTML = `<p>No recipes match your current filters.</p>`;
+          this.root.querySelector('[data-list-target="recipes"]').appendChild(emptyState);
+        }
+      } else if (emptyState) {
+        emptyState.remove();
+      }
+    }
+
+    getInitialData() {
+      return {
+        ingredients: [
+          { id: 1, name: 'Garlic' }, { id: 2, name: 'Olive Oil' }, { id: 3, name: 'Spaghetti' },
+          { id: 4, name: 'Red Pepper Flakes' }, { id: 5, name: 'Parsley' }, { id: 6, name: 'Salt' },
+          { id: 7, name: 'Black Pepper' }, { id: 8, name: 'Tomato' }, { id: 9, name: 'Onion' },
+          { id: 10, name: 'Chicken Breast' }, { id: 11, name: 'Lemon' }, { id: 12, name: 'Butter' }
+        ],
+        recipes: [
+          {
+            id: 101, name: 'Spaghetti Aglio e Olio', servings: 2, category: 'Pasta',
+            tags: ['Quick', 'Vegan', 'Classic'],
+            ingredients: [
+              { ingredientId: 3, amount: '200', measurement: 'g' },
+              { ingredientId: 2, amount: '4', measurement: 'tbsp' },
+              { ingredientId: 1, amount: '3', measurement: 'cloves, thinly sliced' },
+              { ingredientId: 4, amount: '1/2', measurement: 'tsp' },
+              { ingredientId: 5, amount: '2', measurement: 'tbsp, chopped' },
+              { ingredientId: 6, amount: 'to taste', measurement: '' }
+            ],
+            instructions: [
+              'Bring a large pot of salted water to a boil. Cook spaghetti according to package directions until al dente.',
+              'Meanwhile, in a large skillet, heat olive oil over medium-low heat. Add garlic and red pepper flakes. Cook, stirring occasionally, until garlic is golden brown, about 3-5 minutes. Be careful not to burn it.',
+              'Reserve about 1 cup of pasta water, then drain the spaghetti.',
+              'Add the drained spaghetti to the skillet with the garlic and oil. Toss to combine.',
+              'Add about 1/4 cup of the reserved pasta water and the chopped parsley. Toss vigorously for about a minute until a creamy sauce forms.',
+              'Season with salt to taste. Serve immediately.'
+            ],
+            notes: 'For extra flavor, add a splash of white wine with the garlic. Ensure pasta water is well-salted like the sea!'
+          },
+          {
+            id: 102, name: 'Simple Lemon Herb Chicken', servings: 4, category: 'Main Course',
+            tags: ['Dinner', 'Healthy'],
+            ingredients: [
+              { ingredientId: 10, amount: '4', measurement: 'boneless, skinless breasts' },
+              { ingredientId: 11, amount: '1', measurement: '' },
+              { ingredientId: 2, amount: '2', measurement: 'tbsp' },
+              { ingredientId: 1, amount: '2', measurement: 'cloves, minced' },
+              { ingredientId: 5, amount: '1', measurement: 'tbsp, chopped' },
+              { ingredientId: 6, amount: '1/2', measurement: 'tsp' },
+              { ingredientId: 7, amount: '1/4', measurement: 'tsp' }
+            ],
+            instructions: [
+              'Preheat oven to 400°F (200°C).',
+              'In a small bowl, mix together olive oil, lemon juice, minced garlic, parsley, salt, and pepper.',
+              'Place chicken breasts in a baking dish and pour the lemon herb mixture over them, ensuring they are well-coated.',
+              'Bake for 20-25 minutes, or until chicken is cooked through and juices run clear.',
+              'Let the chicken rest for 5 minutes before slicing and serving.'
+            ],
+            notes: ''
+          }
+        ],
+        cupboard: [
+          { ingredientId: 1, amount: "2", measurement: "heads" },
+          { ingredientId: 2, amount: "1", measurement: "bottle" },
+          { ingredientId: 6, amount: "1", measurement: "container" }
+        ],
+        shoppingList: []
+      };
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    new DigitalPantryApp().init();
+  });
+</script>
+</body>
+</html>
