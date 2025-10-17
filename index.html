@@ -57,66 +57,43 @@
       top: 0;
       z-index: 10;
 
-      & h1 {
-        margin: 0 0 var(--spacing-md) 0;
-        font-size: clamp(1.5rem, 5vw, 2rem);
-        text-align: center;
-        color: var(--color-primary);
-      }
-
-      & nav {
+      & .header-title {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        flex-wrap: wrap;
+        justify-content: center;
         gap: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
 
-        & ul {
-          display: flex;
-          justify-content: center;
-          list-style: none;
-          gap: var(--spacing-sm);
-          flex-wrap: wrap;
+        & h1 {
           margin: 0;
-          padding: 0;
-          flex: 1;
+          font-size: clamp(1.5rem, 5vw, 2rem);
+          color: var(--color-primary);
         }
 
-        & .shopping-list-btn {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-xs);
-          padding: var(--spacing-sm) var(--spacing-md);
-          font-size: 0.9rem;
-          white-space: nowrap;
+        & .shopping-list-icon {
+          width: 48px;
+          height: 48px;
 
           & svg {
-            fill: currentColor;
+            width: 24px;
+            height: 24px;
           }
 
           &.selected {
             background-color: var(--color-primary);
             color: var(--color-on-primary);
-            border-color: var(--color-primary);
-            font-weight: 700;
           }
         }
+      }
 
-        @media (max-width: 768px) {
-          & {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          & ul {
-            justify-content: center;
-            margin-bottom: var(--spacing-sm);
-          }
-
-          & .shopping-list-btn {
-            align-self: center;
-          }
-        }
+      & nav ul {
+        display: flex;
+        justify-content: center;
+        list-style: none;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
+        margin: 0;
+        padding: 0;
       }
     }
 
@@ -682,7 +659,14 @@
 </head>
 <body>
 <header class="app-header">
-  <h1>The Digital Pantry</h1>
+  <div class="header-title">
+    <h1>The Digital Pantry</h1>
+    <button class="icon-button primary shopping-list-icon" data-action="navigate" data-view="shopping-list" title="Shopping List" aria-label="Open Shopping List">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18Z"/>
+      </svg>
+    </button>
+  </div>
   <nav aria-label="Main Navigation">
     <ul>
       <li>
@@ -692,12 +676,6 @@
         <button class="nav-link" data-action="navigate" data-view="ingredients">Ingredients</button>
       </li>
     </ul>
-    <button class="button primary shopping-list-btn" data-action="navigate" data-view="shopping-list" title="Shopping List">
-      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-        <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18Z"/>
-      </svg>
-      Shopping List
-    </button>
   </nav>
 </header>
 <main id="app-root"></main>
@@ -1028,13 +1006,13 @@
         link.setAttribute('aria-selected', isSelected);
       });
       
-      // Handle shopping list button selection
-      const shoppingBtn = document.querySelector('.shopping-list-btn');
-      if (shoppingBtn) {
+      // Handle shopping list icon selection
+      const shoppingIcon = document.querySelector('.shopping-list-icon');
+      if (shoppingIcon) {
         if (view === 'shopping-list') {
-          shoppingBtn.classList.add('selected');
+          shoppingIcon.classList.add('selected');
         } else {
-          shoppingBtn.classList.remove('selected');
+          shoppingIcon.classList.remove('selected');
         }
       }
 
