@@ -994,37 +994,6 @@
       padding: var(--spacing-lg);
     }
 
-    .shortcuts-list {
-      display: grid;
-      gap: var(--spacing-sm);
-      
-      & dt {
-        font-weight: bold;
-        margin-top: var(--spacing-sm);
-        display: flex;
-        align-items: center;
-      }
-
-      & dd {
-        margin-left: var(--spacing-lg);
-        color: var(--color-on-surface);
-        opacity: 0.9;
-      }
-
-      & kbd {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        background: var(--color-background);
-        border: 1px solid var(--color-border);
-        border-radius: 4px;
-        font-family: monospace;
-        font-size: 0.9rem;
-        margin-right: var(--spacing-sm);
-        min-width: 2rem;
-        text-align: center;
-      }
-    }
-
     /* Focus styles for accessibility */
     *:focus-visible {
       outline: var(--focus-outline-width) solid var(--color-primary);
@@ -1135,13 +1104,6 @@
           & h1 {
             font-size: 1.25rem;
           }
-        }
-      }
-
-      .shortcuts-list {
-        & dd {
-          margin-left: var(--spacing-md);
-          font-size: 0.9rem;
         }
       }
     }
@@ -1429,92 +1391,55 @@
 </template>
 
 <script>
-  class DigitalPantryApp {
-    constructor() {
-      this.root = document.getElementById('app-root');
-      this.toast = document.getElementById('toast-notification');
-      this.state = {};
-      this.currentState = {};
-      this.activeFilters = [];
-      this.wakeLock = null;
-      this.toastTimeout = null;
-      this.cookingState = {};
-      this.uiState = { 
-        collapsedSections: {},
-        theme: 'dark',
-        lastViewedRecipe: null,
-        filterSettings: {}
-      };
+  // =====================================================
+  // STORAGE MANAGER - Handles all localStorage operations
+  // =====================================================
+  class StorageManager {
+    static KEYS = {
+      DATA: 'digitalPantryData',
+      VIEW: 'digitalPantryView',
+      UI_STATE: 'digitalPantryUIState',
+      COOKING: 'digitalPantryCooking',
+      FORM_DRAFT: 'recipeFormDraft'
+    };
+
+    static save(key, data) {
+      try {
+        localStorage.setItem(key, JSON.stringify(data));
+      } catch (e) {
+        console.error(`Error saving ${key}:`, e);
+      }
+    }
+
+    static load(key, defaultValue = null) {
+      try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : defaultValue;
+      } catch (e) {
+        console.error(`Error loading ${key}:`, e);
+        return defaultValue;
+      }
+    }
+
+    static remove(key) {
+      localStorage.removeItem(key);
+    }
+  }
+
+  // =====================================================
+  // THEME MANAGER - Handles theme switching
+  // =====================================================
+  class ThemeManager {
+    constructor(uiState) {
+      this.uiState = uiState;
     }
 
     init() {
-      this.loadData();
-      this.initTheme();
-      this.initKeyboardShortcuts();
-      
-      document.body.addEventListener('click', e => this.handleEvent(e));
-      document.body.addEventListener('submit', e => this.handleFormSubmit(e));
-      window.addEventListener('popstate', () => this.renderCurrentView());
-      this.renderCurrentView();
-    }
-
-    // --- STATE MANAGEMENT ---
-    loadData() {
-      const dataString = localStorage.getItem('digitalPantryData');
-      const defaultData = this.getInitialData();
-      let loadedData = {};
-
-      if (dataString) {
-        try {
-          loadedData = JSON.parse(dataString);
-        } catch (e) {
-          console.error('Error parsing localStorage data:', e);
-        }
-      }
-
-      this.state = { ...defaultData, ...loadedData };
-
-      const viewState = localStorage.getItem('digitalPantryView');
-      this.currentState = viewState ? JSON.parse(viewState) : { view: 'recipes', id: null };
-
-      const uiState = localStorage.getItem('digitalPantryUIState');
-      if (uiState) {
-        try {
-          this.uiState = JSON.parse(uiState);
-        } catch (e) {
-          console.error('Error parsing UI state:', e);
-        }
-      }
-
-      const cookingState = localStorage.getItem('digitalPantryCooking');
-      if (cookingState) {
-        try {
-          this.cookingState = JSON.parse(cookingState);
-          this.currentState = { view: 'cooking', id: this.cookingState.recipeId };
-        } catch (e) { console.error('Error parsing cooking state:', e); }
-      }
-    }
-
-    saveData() {
-      localStorage.setItem('digitalPantryData', JSON.stringify(this.state));
-      localStorage.setItem('digitalPantryView', JSON.stringify(this.currentState));
-      localStorage.setItem('digitalPantryUIState', JSON.stringify(this.uiState));
-      if (this.currentState.view === 'cooking') {
-        localStorage.setItem('digitalPantryCooking', JSON.stringify(this.cookingState));
-      } else {
-        localStorage.removeItem('digitalPantryCooking');
-      }
-    }
-
-    // --- THEME MANAGEMENT ---
-    initTheme() {
-      // Check localStorage first, then system preference
       const savedTheme = this.uiState.theme;
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme = savedTheme || (prefersDark ? 'dark' : 'light');
       this.setTheme(theme);
 
-      // Listen for system theme changes
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
         if (!this.uiState.theme) {
           this.setTheme(e.matches ? 'dark' : 'light');
@@ -1523,81 +1448,389 @@
     }
 
     setTheme(theme) {
-      this.uiState.theme = theme;
       document.documentElement.setAttribute('data-theme', theme);
-      this.saveData();
+      this.uiState.theme = theme;
     }
 
-    toggleTheme() {
+    toggle() {
       const newTheme = this.uiState.theme === 'dark' ? 'light' : 'dark';
       this.setTheme(newTheme);
-      this.showToast(`Switched to ${newTheme} mode`);
+      return newTheme;
+    }
+  }
+
+  // =====================================================
+  // TOAST NOTIFICATION MANAGER
+  // =====================================================
+  class ToastManager {
+    constructor(toastElement) {
+      this.toast = toastElement;
+      this.timeout = null;
     }
 
-    // --- KEYBOARD SHORTCUTS ---
-    initKeyboardShortcuts() {
-      this.keyboardShortcutsEnabled = true;
-      document.addEventListener('keydown', (e) => {
-        if (!this.keyboardShortcutsEnabled) return;
-        
-        // Don't trigger shortcuts when user is typing in an input
-        if (e.target.matches('input, textarea, select')) return;
+    show(message, type = 'success') {
+      if (this.timeout) {
+        clearTimeout(this.timeout);
+      }
+      this.toast.textContent = message;
+      this.toast.className = 'toast-notification';
+      this.toast.classList.add('show');
+      if (type === 'error') {
+        this.toast.classList.add('error');
+      }
+      this.timeout = setTimeout(() => this.toast.classList.remove('show'), 5000);
+    }
+  }
 
-        // Shortcuts
-        const shortcuts = {
-          'r': () => this.navigateToView('recipes'),
-          'i': () => this.navigateToView('ingredients'),
-          's': () => this.navigateToView('shopping-list'),
-          't': () => this.toggleTheme(),
-          'Escape': () => {
-            const modal = document.querySelector('.modal-overlay');
-            if (modal) {
-              modal.remove();
-            } else {
-              const widget = this.root.querySelector('[data-container="search-widget"].is-open');
-              if (widget) {
-                const btn = this.root.querySelector('[data-action="toggle-search-widget"]');
-                if (btn) btn.click();
-              }
-            }
+  // =====================================================
+  // TEMPLATE MANAGER - Handles HTML template cloning
+  // =====================================================
+  class TemplateManager {
+    static clone(templateId) {
+      const template = document.getElementById(templateId);
+      if (!template) {
+        console.error(`Template not found: ${templateId}`);
+        return document.createElement('div');
+      }
+      return template.content.cloneNode(true);
+    }
+  }
+
+  // =====================================================
+  // RECIPE RENDERER CLASS
+  // =====================================================
+  class RecipeRenderer {
+    constructor(app) {
+      this.app = app;
+    }
+
+    renderDetail(id) {
+      const recipe = this.app.state.recipes.find(r => r.id === id);
+      if (!recipe) {
+        return this.app.navigateToView('recipes');
+      }
+
+      // Save last viewed recipe
+      this.app.uiState.lastViewedRecipe = id;
+      this.app.saveData();
+
+      const view = this.app.cloneTemplate('recipe-detail-template');
+      this._populateRecipeInfo(view, recipe);
+      this._renderIngredientsList(view, recipe);
+      this._renderInstructionsList(view, recipe);
+
+      this.app.root.appendChild(view);
+      
+      this._setupDetailButtons(id);
+      this._restoreCollapseState(id);
+    }
+
+    _populateRecipeInfo(view, recipe) {
+      view.querySelector('[data-text="name"]').textContent = recipe.name;
+      view.querySelector('[data-text="category"]').textContent = recipe.category;
+      view.querySelector('[data-text="servings"]').textContent = recipe.servings;
+
+      if (recipe.notes) {
+        view.querySelector('[data-text="notes"]').textContent = recipe.notes;
+      } else {
+        view.querySelector('[data-container="notes"]').remove();
+      }
+
+      recipe.tags.forEach(tag => view.querySelector('[data-container="tags"]').appendChild(this.app.createBadge(tag)));
+    }
+
+    _renderIngredientsList(view, recipe) {
+      const shoppingListIds = new Set(this.app.state.shoppingList.map(i => i.ingredientId));
+      const ingredientsList = view.querySelector('[data-list-target="ingredients"]');
+      
+      recipe.ingredients.forEach(ing => {
+        const ingredient = this.app.state.ingredients.find(i => i.id === ing.ingredientId);
+        const li = this._createIngredientListItem(ingredient, ing, recipe, shoppingListIds);
+        ingredientsList.appendChild(li);
+      });
+    }
+
+    _createIngredientListItem(ingredient, ing, recipe, shoppingListIds) {
+      const li = document.createElement('li');
+      li.className = 'ingredient-list-item';
+      li.style.cursor = 'pointer';
+
+      const infoDiv = document.createElement('div');
+      infoDiv.innerHTML = `<strong>${ingredient?.name || 'Unknown'}</strong> — ${ing.amount} ${ing.measurement || ''}`;
+      
+      const actionsDiv = document.createElement('div');
+      actionsDiv.style.position = 'relative';
+      actionsDiv.style.zIndex = '2';
+
+      if (shoppingListIds.has(ing.ingredientId)) {
+        this._addRemoveFromListButton(actionsDiv, ing, ingredient, li);
+      } else {
+        this._addToListButton(actionsDiv, ing, ingredient, recipe, li);
+      }
+      
+      li.appendChild(infoDiv);
+      li.appendChild(actionsDiv);
+      return li;
+    }
+
+    _addRemoveFromListButton(actionsDiv, ing, ingredient, li) {
+      li.dataset.action = 'remove-from-shopping-list';
+      li.dataset.id = ing.ingredientId;
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'icon-button success';
+      removeBtn.dataset.action = 'remove-from-shopping-list';
+      removeBtn.dataset.id = ing.ingredientId;
+      removeBtn.title = 'In shopping list - click to remove';
+      removeBtn.setAttribute('aria-label', `Remove ${ingredient?.name || 'ingredient'} from shopping list`);
+      removeBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8"/>
+        </svg>
+      `;
+      actionsDiv.appendChild(removeBtn);
+    }
+
+    _addToListButton(actionsDiv, ing, ingredient, recipe, li) {
+      li.dataset.action = 'add-to-shopping-list';
+      li.dataset.id = ing.ingredientId;
+      li.dataset.amount = ing.amount;
+      li.dataset.measurement = ing.measurement || '';
+      li.dataset.recipeName = recipe.name;
+      
+      const addToListBtn = document.createElement('button');
+      addToListBtn.className = 'icon-button primary';
+      addToListBtn.dataset.action = 'add-to-shopping-list';
+      addToListBtn.dataset.id = ing.ingredientId;
+      addToListBtn.dataset.amount = ing.amount;
+      addToListBtn.dataset.measurement = ing.measurement || '';
+      addToListBtn.dataset.recipeName = recipe.name;
+      addToListBtn.title = 'Add to shopping list';
+      addToListBtn.setAttribute('aria-label', `Add ${ingredient?.name || 'ingredient'} to shopping list`);
+      addToListBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18Z"/>
+        </svg>
+      `;
+      actionsDiv.appendChild(addToListBtn);
+    }
+
+    _renderInstructionsList(view, recipe) {
+      const stepsList = view.querySelector('[data-list-target="steps"]');
+      recipe.instructions.forEach(step => {
+        const li = document.createElement('li');
+        li.textContent = step;
+        stepsList.appendChild(li);
+      });
+    }
+
+    _setupDetailButtons(id) {
+      this.app.root.querySelector('[data-action="navigate"][data-view="edit-recipe"]').dataset.id = id;
+      this.app.root.querySelector('.detail-section h3 [data-action="navigate"][data-view="cooking"]').dataset.id = id;
+    }
+
+    _restoreCollapseState(id) {
+      const recipeCollapseState = this.app.uiState.collapsedSections[id] || {};
+      Object.keys(recipeCollapseState).forEach(sectionName => {
+        if (recipeCollapseState[sectionName]) {
+          const sectionEl = this.app.root.querySelector(`[data-collapsible="${sectionName}"]`);
+          const toggleBtn = this.app.root.querySelector(`[data-section="${sectionName}"]`);
+          if (sectionEl && toggleBtn) {
+            sectionEl.classList.add('collapsed');
+            toggleBtn.setAttribute('aria-expanded', 'false');
           }
-        };
-
-        if (shortcuts[e.key]) {
-          e.preventDefault();
-          shortcuts[e.key]();
         }
       });
     }
 
-    showKeyboardShortcutsHelp() {
-      const helpHtml = `
-        <div class="modal-overlay" data-action="close-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
-          <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header">
-              <h2 id="shortcuts-title">Keyboard Shortcuts</h2>
-              <button class="icon-button" data-action="close-modal" aria-label="Close">
-                <svg viewBox="0 0 24 24">
-                  <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
-                </svg>
-              </button>
-            </div>
-            <div class="modal-body">
-              <dl class="shortcuts-list">
-                <dt><kbd>R</kbd></dt><dd>Go to Recipes</dd>
-                <dt><kbd>I</kbd></dt><dd>Go to Ingredients</dd>
-                <dt><kbd>S</kbd></dt><dd>Go to Shopping List</dd>
-                <dt><kbd>T</kbd></dt><dd>Toggle Light/Dark Theme</dd>
-                <dt><kbd>Esc</kbd></dt><dd>Close Modals</dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-      `;
+    renderForm(id = null) {
+      const isEditing = id !== null;
+      let recipe = this._getRecipeForForm(id, isEditing);
       
-      const modalDiv = document.createElement('div');
-      modalDiv.innerHTML = helpHtml;
-      document.body.appendChild(modalDiv.firstElementChild);
+      if (isEditing && !recipe) {
+        return this.app.navigateToView('recipes');
+      }
+
+      const view = this.app.cloneTemplate('recipe-form-template');
+      const form = view.querySelector('form');
+      this._setupForm(form, recipe, id, isEditing);
+      this.app.root.appendChild(view);
+      this._setupAutoSave(form);
+    }
+
+    _getRecipeForForm(id, isEditing) {
+      if (isEditing) {
+        return this.app.state.recipes.find(r => r.id === id);
+      }
+
+      let recipe = { 
+        name: '', 
+        servings: 1, 
+        category: '', 
+        tags: [], 
+        ingredients: [{}], 
+        instructions: [''], 
+        notes: '' 
+      };
+
+      const draft = localStorage.getItem('recipeFormDraft');
+      if (draft) {
+        try {
+          const parsedDraft = JSON.parse(draft);
+          if (!parsedDraft.id) {
+            recipe = {
+              name: parsedDraft.name || '',
+              servings: parsedDraft.servings || 1,
+              category: parsedDraft.category || '',
+              tags: parsedDraft.tags ? parsedDraft.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+              ingredients: parsedDraft.ingredients?.length ? parsedDraft.ingredients : [{}],
+              instructions: parsedDraft.instructions?.length ? parsedDraft.instructions : [''],
+              notes: parsedDraft.notes || ''
+            };
+          }
+        } catch (e) {
+          console.error('Failed to parse draft:', e);
+        }
+      }
+
+      return recipe;
+    }
+
+    _setupForm(form, recipe, id, isEditing) {
+      form.dataset.id = id || '';
+      
+      const view = form.closest('[data-view-root]') || form.parentElement;
+      view.querySelector('h2').textContent = isEditing ? `Edit: ${recipe.name}` : 'Add New Recipe';
+      
+      form.elements.name.value = recipe.name;
+      form.elements.servings.value = recipe.servings;
+      form.elements.category.value = recipe.category;
+      form.elements.tags.value = recipe.tags.join(', ');
+      form.elements.notes.value = recipe.notes;
+
+      const ingredientsContainer = form.querySelector('[data-list-target="ingredients"]');
+      (recipe.ingredients.length ? recipe.ingredients : [{}]).forEach(ing => 
+        this.app.addIngredientRowToForm(ingredientsContainer, ing)
+      );
+
+      const stepsContainer = form.querySelector('[data-list-target="steps"]');
+      (recipe.instructions.length ? recipe.instructions : ['']).forEach(step => 
+        this.app.addInstructionRowToForm(stepsContainer, step)
+      );
+    }
+
+    _setupAutoSave(form) {
+      const autoSaveDraft = () => {
+        const formData = new FormData(form);
+        const draft = {
+          id: form.dataset.id || null,
+          name: formData.get('name'),
+          servings: formData.get('servings'),
+          category: formData.get('category'),
+          tags: formData.get('tags'),
+          ingredients: Array.from(form.querySelectorAll('.ingredient-row')).map(row => ({
+            ingredientId: row.querySelector('[name="ingredientId"]').value,
+            amount: row.querySelector('[name="amount"]').value,
+            measurement: row.querySelector('[name="measurement"]').value
+          })),
+          instructions: Array.from(form.querySelectorAll('[name="instruction"]')).map(input => input.value),
+          notes: formData.get('notes')
+        };
+        localStorage.setItem('recipeFormDraft', JSON.stringify(draft));
+      };
+
+      form.addEventListener('input', autoSaveDraft);
+      form.addEventListener('change', autoSaveDraft);
+    }
+  }
+
+  // =====================================================
+  // MAIN APPLICATION CLASS
+  // =====================================================
+  class DigitalPantryApp {
+    constructor() {
+      this.root = document.getElementById('app-root');
+      this.state = {};
+      this.currentState = {};
+      this.activeFilters = [];
+      this.wakeLock = null;
+      this.cookingState = {};
+      this.uiState = { 
+        collapsedSections: {},
+        theme: 'dark',
+        lastViewedRecipe: null,
+        filterSettings: {}
+      };
+      
+      // Initialize managers
+      this.toastManager = new ToastManager(document.getElementById('toast-notification'));
+      this.themeManager = new ThemeManager(this.uiState);
+      this.recipeRenderer = new RecipeRenderer(this);
+    }
+
+    init() {
+      this.loadAllData();
+      this.themeManager.init();
+      this.attachEventListeners();
+      this.renderCurrentView();
+    }
+
+    // --- STATE MANAGEMENT ---
+    loadAllData() {
+      this.loadAppData();
+      this.loadViewState();
+      this.loadUIState();
+      this.loadCookingState();
+    }
+
+    loadAppData() {
+      const defaultData = this.getInitialData();
+      const loadedData = StorageManager.load(StorageManager.KEYS.DATA, {});
+      this.state = { ...defaultData, ...loadedData };
+    }
+
+    loadViewState() {
+      this.currentState = StorageManager.load(StorageManager.KEYS.VIEW, { view: 'recipes', id: null });
+    }
+
+    loadUIState() {
+      const loadedUIState = StorageManager.load(StorageManager.KEYS.UI_STATE);
+      if (loadedUIState) {
+        this.uiState = loadedUIState;
+      }
+    }
+
+    loadCookingState() {
+      const cookingState = StorageManager.load(StorageManager.KEYS.COOKING);
+      if (cookingState) {
+        this.cookingState = cookingState;
+        this.currentState = { view: 'cooking', id: this.cookingState.recipeId };
+      }
+    }
+
+    saveData() {
+      StorageManager.save(StorageManager.KEYS.DATA, this.state);
+      StorageManager.save(StorageManager.KEYS.VIEW, this.currentState);
+      StorageManager.save(StorageManager.KEYS.UI_STATE, this.uiState);
+      
+      if (this.currentState.view === 'cooking') {
+        StorageManager.save(StorageManager.KEYS.COOKING, this.cookingState);
+      } else {
+        StorageManager.remove(StorageManager.KEYS.COOKING);
+      }
+    }
+
+    attachEventListeners() {
+      document.body.addEventListener('click', e => this.handleEvent(e));
+      document.body.addEventListener('submit', e => this.handleFormSubmit(e));
+      window.addEventListener('popstate', () => this.renderCurrentView());
+    }
+
+    // --- THEME MANAGEMENT ---
+    toggleTheme() {
+      const newTheme = this.themeManager.toggle();
+      this.saveData();
+      this.showToast(`Switched to ${newTheme} mode`);
     }
 
     // --- UTILITY FUNCTIONS ---
@@ -1666,10 +1899,6 @@
         'edit-ingredient-inline': () => this.renderInlineIngredientEdit(parseInt(id), target),
         'save-ingredient-inline': () => this.saveInlineIngredient(parseInt(id), target),
         'toggle-theme': () => this.toggleTheme(),
-        'show-shortcuts': () => {
-          event.preventDefault();
-          this.showKeyboardShortcutsHelp();
-        },
         'close-modal': () => {
           event.preventDefault();
           const modal = target.closest('.modal-overlay');
@@ -1797,191 +2026,11 @@
     }
 
     renderRecipeDetail(id) {
-      const recipe = this.state.recipes.find(r => r.id === id);
-      if (!recipe) {
-        return this.navigateToView('recipes');
-      }
-
-      // Save last viewed recipe
-      this.uiState.lastViewedRecipe = id;
-      this.saveData();
-
-      const view = this.cloneTemplate('recipe-detail-template');
-      view.querySelector('[data-text="name"]').textContent = recipe.name;
-      view.querySelector('[data-text="category"]').textContent = recipe.category;
-      view.querySelector('[data-text="servings"]').textContent = recipe.servings;
-
-      if (recipe.notes) {
-        view.querySelector('[data-text="notes"]').textContent = recipe.notes;
-      } else {
-        view.querySelector('[data-container="notes"]').remove();
-      }
-
-      recipe.tags.forEach(tag => view.querySelector('[data-container="tags"]').appendChild(this.createBadge(tag)));
-
-      const shoppingListIds = new Set(this.state.shoppingList.map(i => i.ingredientId));
-      const ingredientsList = view.querySelector('[data-list-target="ingredients"]');
-      recipe.ingredients.forEach(ing => {
-        const ingredient = this.state.ingredients.find(i => i.id === ing.ingredientId);
-        const li = document.createElement('li');
-        li.className = 'ingredient-list-item';
-        li.style.cursor = 'pointer';
-
-        const infoDiv = document.createElement('div');
-        infoDiv.innerHTML = `<strong>${ingredient?.name || 'Unknown'}</strong> — ${ing.amount} ${ing.measurement || ''}`;
-        
-        const actionsDiv = document.createElement('div');
-        actionsDiv.style.position = 'relative';
-        actionsDiv.style.zIndex = '2';
-
-        if (shoppingListIds.has(ing.ingredientId)) {
-          // Shopping cart with X (remove from list)
-          li.dataset.action = 'remove-from-shopping-list';
-          li.dataset.id = ing.ingredientId;
-          
-          const removeBtn = document.createElement('button');
-          removeBtn.className = 'icon-button success';
-          removeBtn.dataset.action = 'remove-from-shopping-list';
-          removeBtn.dataset.id = ing.ingredientId;
-          removeBtn.title = 'In shopping list - click to remove';
-          removeBtn.setAttribute('aria-label', `Remove ${ingredient?.name || 'ingredient'} from shopping list`);
-          removeBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8"/>
-            </svg>
-          `;
-          actionsDiv.appendChild(removeBtn);
-        } else {
-          // Shopping cart with plus (add to list)
-          li.dataset.action = 'add-to-shopping-list';
-          li.dataset.id = ing.ingredientId;
-          li.dataset.amount = ing.amount;
-          li.dataset.measurement = ing.measurement || '';
-          li.dataset.recipeName = recipe.name;
-          
-          const addToListBtn = document.createElement('button');
-          addToListBtn.className = 'icon-button primary';
-          addToListBtn.dataset.action = 'add-to-shopping-list';
-          addToListBtn.dataset.id = ing.ingredientId;
-          addToListBtn.dataset.amount = ing.amount;
-          addToListBtn.dataset.measurement = ing.measurement || '';
-          addToListBtn.dataset.recipeName = recipe.name;
-          addToListBtn.title = 'Add to shopping list';
-          addToListBtn.setAttribute('aria-label', `Add ${ingredient?.name || 'ingredient'} to shopping list`);
-          addToListBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18Z"/>
-            </svg>
-          `;
-          actionsDiv.appendChild(addToListBtn);
-        }
-        li.appendChild(infoDiv);
-        li.appendChild(actionsDiv);
-        ingredientsList.appendChild(li);
-      });
-
-      const stepsList = view.querySelector('[data-list-target="steps"]');
-      recipe.instructions.forEach(step => {
-        const li = document.createElement('li');
-        li.textContent = step;
-        stepsList.appendChild(li);
-      });
-
-      this.root.appendChild(view);
-      
-      // Set the edit button's data-id attribute
-      this.root.querySelector('[data-action="navigate"][data-view="edit-recipe"]').dataset.id = id;
-      
-      // Set the start cooking button's data-id attribute in the instructions header
-      this.root.querySelector('.detail-section h3 [data-action="navigate"][data-view="cooking"]').dataset.id = id;
-      
-      // Restore collapse state
-      const recipeCollapseState = this.uiState.collapsedSections[id] || {};
-      Object.keys(recipeCollapseState).forEach(sectionName => {
-        if (recipeCollapseState[sectionName]) {
-          const sectionEl = this.root.querySelector(`[data-collapsible="${sectionName}"]`);
-          const toggleBtn = this.root.querySelector(`[data-section="${sectionName}"]`);
-          if (sectionEl && toggleBtn) {
-            sectionEl.classList.add('collapsed');
-            toggleBtn.setAttribute('aria-expanded', 'false');
-          }
-        }
-      });
+      this.recipeRenderer.renderDetail(id);
     }
 
     renderRecipeForm(id = null) {
-      const isEditing = id !== null;
-      let recipe = isEditing ? this.state.recipes.find(r => r.id === id) : { name: '', servings: 1, category: '', tags: [], ingredients: [{}], instructions: [''], notes: '' };
-      
-      // Try to restore draft if not editing
-      if (!isEditing) {
-        const draft = localStorage.getItem('recipeFormDraft');
-        if (draft) {
-          try {
-            const parsedDraft = JSON.parse(draft);
-            // Only use draft if it doesn't have an ID (not from editing)
-            if (!parsedDraft.id) {
-              recipe = {
-                name: parsedDraft.name || '',
-                servings: parsedDraft.servings || 1,
-                category: parsedDraft.category || '',
-                tags: parsedDraft.tags ? parsedDraft.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-                ingredients: parsedDraft.ingredients?.length ? parsedDraft.ingredients : [{}],
-                instructions: parsedDraft.instructions?.length ? parsedDraft.instructions : [''],
-                notes: parsedDraft.notes || ''
-              };
-            }
-          } catch (e) {
-            console.error('Failed to parse draft:', e);
-          }
-        }
-      }
-      
-      if (isEditing && !recipe) {
-        return this.navigateToView('recipes');
-      }
-
-      const view = this.cloneTemplate('recipe-form-template');
-      const form = view.querySelector('form');
-      form.dataset.id = id || '';
-      view.querySelector('h2').textContent = isEditing ? `Edit: ${recipe.name}` : 'Add New Recipe';
-      form.elements.name.value = recipe.name;
-      form.elements.servings.value = recipe.servings;
-      form.elements.category.value = recipe.category;
-      form.elements.tags.value = recipe.tags.join(', ');
-      form.elements.notes.value = recipe.notes;
-
-      const ingredientsContainer = view.querySelector('[data-list-target="ingredients"]');
-      (recipe.ingredients.length ? recipe.ingredients : [{}]).forEach(ing => this.addIngredientRowToForm(ingredientsContainer, ing));
-
-      const stepsContainer = view.querySelector('[data-list-target="steps"]');
-      (recipe.instructions.length ? recipe.instructions : ['']).forEach(step => this.addInstructionRowToForm(stepsContainer, step));
-
-      this.root.appendChild(view);
-
-      // Auto-save draft to localStorage on input
-      const autoSaveDraft = () => {
-        const formData = new FormData(form);
-        const draft = {
-          id: form.dataset.id || null,
-          name: formData.get('name'),
-          servings: formData.get('servings'),
-          category: formData.get('category'),
-          tags: formData.get('tags'),
-          ingredients: Array.from(form.querySelectorAll('.ingredient-row')).map(row => ({
-            ingredientId: row.querySelector('[name="ingredientId"]').value,
-            amount: row.querySelector('[name="amount"]').value,
-            measurement: row.querySelector('[name="measurement"]').value
-          })),
-          instructions: Array.from(form.querySelectorAll('[name="instruction"]')).map(input => input.value),
-          notes: formData.get('notes')
-        };
-        localStorage.setItem('recipeFormDraft', JSON.stringify(draft));
-      };
-
-      // Add input event listeners for auto-save
-      form.addEventListener('input', autoSaveDraft);
-      form.addEventListener('change', autoSaveDraft);
+      this.recipeRenderer.renderForm(id);
     }
 
     renderIngredientsList() {
@@ -2454,20 +2503,7 @@
     cloneTemplate(id) { return document.getElementById(id).content.cloneNode(true); }
 
     showToast(message, type = 'success') {
-      if (this.toastTimeout) {
-        clearTimeout(this.toastTimeout);
-      }
-      this.toast.textContent = message;
-      this.toast.className = 'toast-notification';
-      this.toast.classList.add('show');
-      this.toast.setAttribute('role', 'status');
-      this.toast.setAttribute('aria-live', 'polite');
-      if (type === 'error') {
-        this.toast.classList.add('error');
-        this.toast.setAttribute('aria-live', 'assertive');
-      }
-      // Increased from 3s to 5s for better accessibility
-      this.toastTimeout = setTimeout(() => this.toast.classList.remove('show'), 5000);
+      this.toastManager.show(message, type);
     }
 
     getIngredientOptions(selectedId = null) {
