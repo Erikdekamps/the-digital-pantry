@@ -11,34 +11,39 @@
       --color-background: #121212;
       --color-surface: #1e1e1e;
       --color-primary: #bb86fc;
-      --color-on-background: #e1e1e1;
-      --color-on-surface: #e1e1e1;
+      --color-on-background: #e8e8e8;
+      --color-on-surface: #e8e8e8;
       --color-on-primary: #000;
-      --color-border: #333;
-      --color-success: #03dac6;
-      --color-danger: #cf6679;
-      --color-info: #2196f3;
+      --color-border: #404040;
+      --color-text-secondary: #b8b8b8;
+      --color-success: #4caf50;
+      --color-danger: #ef5350;
+      --color-info: #42a5f5;
       --spacing-xs: 0.25rem;
       --spacing-sm: 0.5rem;
       --spacing-md: 1rem;
       --spacing-lg: 1.5rem;
       --radius: 0.5rem;
+      --radius-sm: 0.25rem;
       --font-family: system-ui, -apple-system, "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
       --transition-speed: 0.3s;
+      --focus-outline-width: 3px;
+      --focus-outline-offset: 2px;
     }
 
     /* Light theme */
     [data-theme="light"] {
       --color-background: #ffffff;
-      --color-surface: #f5f5f5;
-      --color-primary: #6200ee;
-      --color-on-background: #1a1a1a;
-      --color-on-surface: #1a1a1a;
-      --color-on-primary: #fff;
-      --color-border: #e0e0e0;
-      --color-success: #00897b;
+      --color-surface: #f8f8f8;
+      --color-primary: #5e35b1;
+      --color-on-background: #121212;
+      --color-on-surface: #121212;
+      --color-on-primary: #ffffff;
+      --color-border: #c0c0c0;
+      --color-text-secondary: #555555;
+      --color-success: #2e7d32;
       --color-danger: #c62828;
-      --color-info: #1976d2;
+      --color-info: #1565c0;
     }
 
     /* 2. BASE & LAYOUT */
@@ -129,7 +134,7 @@
         & p {
           margin: 0;
           font-size: 0.875rem;
-          opacity: 0.7;
+          color: var(--color-text-secondary);
         }
       }
     }
@@ -174,7 +179,7 @@
       }
 
       &:disabled {
-        opacity: 0.5;
+        opacity: 0.6;
         cursor: not-allowed;
         transform: none;
         filter: none;
@@ -347,6 +352,30 @@
       }
     }
 
+    .filter-badge-remove {
+      background: none;
+      border: none;
+      color: inherit;
+      font-size: 1.25rem;
+      line-height: 1;
+      padding: var(--spacing-xs);
+      margin: calc(-1 * var(--spacing-xs));
+      margin-left: var(--spacing-xs);
+      min-width: 24px;
+      min-height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background-color var(--transition-speed);
+    }
+
+    .filter-badge-remove:hover,
+    .filter-badge-remove:focus-visible {
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+
     .filter-ingredient-btn {
       display: inline-flex;
       align-items: center;
@@ -397,6 +426,15 @@
       color: var(--color-primary);
     }
 
+    /* Required field indicator */
+    label:has(+ input[required])::after,
+    label:has(+ textarea[required])::after,
+    label:has(+ select[required])::after {
+      content: ' *';
+      color: var(--color-danger);
+      font-weight: bold;
+    }
+
     .form-group input,
     .form-group textarea,
     .form-group select,
@@ -417,8 +455,9 @@
 
       &:focus,
       &:focus-visible {
-        outline: 2px solid var(--color-primary);
-        outline-offset: 2px;
+        outline: var(--focus-outline-width) solid var(--color-primary);
+        outline-offset: var(--focus-outline-offset);
+        border-color: var(--color-primary);
       }
     }
 
@@ -709,9 +748,10 @@
       background: var(--color-background);
     }
 
-    .ingredient-accordion-header:focus {
-      outline: 2px solid var(--color-primary);
-      outline-offset: -2px;
+    .ingredient-accordion-header:focus,
+    .ingredient-accordion-header:focus-visible {
+      outline: var(--focus-outline-width) solid var(--color-primary);
+      outline-offset: calc(-1 * var(--focus-outline-offset));
     }
 
     .letter-badge {
@@ -798,12 +838,10 @@
     .ingredient-actions {
       display: flex;
       gap: var(--spacing-xs);
-      opacity: 0.7;
-      transition: opacity var(--transition-speed) ease;
     }
 
     .ingredient-item:hover .ingredient-actions {
-      opacity: 1;
+      filter: brightness(1.1);
     }
 
     .ingredient-item-editing {
@@ -989,8 +1027,19 @@
 
     /* Focus styles for accessibility */
     *:focus-visible {
-      outline: 2px solid var(--color-primary);
-      outline-offset: 2px;
+      outline: var(--focus-outline-width) solid var(--color-primary);
+      outline-offset: var(--focus-outline-offset);
+    }
+
+    /* Enhanced focus for interactive elements */
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    [role="button"]:focus-visible {
+      outline: var(--focus-outline-width) solid var(--color-primary);
+      outline-offset: var(--focus-outline-offset);
     }
 
     /* Skip to main content link */
@@ -1148,12 +1197,19 @@
   <section>
     <div class="page-header">
       <h2>My Recipes</h2>
-      <button class="button secondary" data-action="toggle-search-widget" aria-expanded="false" aria-controls="search-widget">Filter Recipes</button>
+      <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+        <button class="button secondary" data-action="toggle-search-widget" aria-expanded="false" aria-controls="search-widget">Filter Recipes</button>
+        <button class="icon-button primary" data-action="navigate" data-view="add-recipe" title="Add new recipe" aria-label="Add new recipe">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/>
+          </svg>
+        </button>
+      </div>
     </div>
-    <div class="search-widget" id="search-widget" data-container="search-widget">
+    <div class="search-widget" id="search-widget" data-container="search-widget" role="search" aria-label="Recipe filters">
       <div>
         <div id="filter-dropdowns"></div>
-        <div id="active-filters"></div>
+        <div id="active-filters" role="region" aria-label="Active filters"></div>
       </div>
     </div>
     <div data-list-target="recipes"></div>
@@ -1205,21 +1261,30 @@
 
 <template id="recipe-form-template">
   <section>
-    <div class="page-header"><h2></h2></div>
+    <div class="page-header">
+      <div style="display: flex; align-items: center; gap: var(--spacing-md); flex: 1;">
+        <h2 style="margin: 0;"></h2>
+        <button type="submit" form="recipe-form" class="icon-button success" title="Save recipe" aria-label="Save recipe">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
     <form data-action="save-recipe" id="recipe-form" novalidate>
       <fieldset>
         <legend>Basic Information</legend>
         <div class="form-group">
           <label for="recipe-name">Recipe Name</label>
-          <input type="text" id="recipe-name" name="name" required>
+          <input type="text" id="recipe-name" name="name" placeholder="Enter recipe name..." required>
         </div>
         <div class="form-group">
           <label for="recipe-servings">Servings</label>
-          <input type="number" id="recipe-servings" name="servings" min="1" required>
+          <input type="number" id="recipe-servings" name="servings" min="1" placeholder="e.g. 4" required>
         </div>
         <div class="form-group">
           <label for="recipe-category">Category</label>
-          <input type="text" id="recipe-category" name="category" list="category-suggestions" required>
+          <input type="text" id="recipe-category" name="category" list="category-suggestions" placeholder="e.g. Main Course, Dessert..." required>
         </div>
         <div class="form-group">
           <label for="recipe-tags">Tags (comma separated)</label>
@@ -1240,9 +1305,13 @@
         <legend>Notes</legend>
         <div class="form-group">
           <label for="recipe-notes">Additional Notes</label>
-          <textarea id="recipe-notes" name="notes" rows="4"></textarea>
+          <textarea id="recipe-notes" name="notes" rows="4" placeholder="Enter any additional notes, tips, or variations..."></textarea>
         </div>
       </fieldset>
+      <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md); margin-top: var(--spacing-lg);">
+        <button type="button" class="button secondary" data-action="navigate" data-view="recipes">Cancel</button>
+        <button type="submit" class="button primary">Save Recipe</button>
+      </div>
     </form>
     <datalist id="category-suggestions">
       <option value="Soup"></option>
@@ -1260,10 +1329,10 @@
     <div class="select-wrapper">
       <select name="ingredientId" aria-label="Ingredient" required></select>
     </div>
-    <input type="text" name="amount" aria-label="Amount" required>
-    <input type="text" name="measurement" aria-label="Measurement Unit">
+    <input type="text" name="amount" aria-label="Amount" placeholder="e.g. 2" required>
+    <input type="text" name="measurement" aria-label="Measurement Unit" placeholder="e.g. cups, tbsp">
     <button type="button" class="button danger icon-button" data-action="form-remove-row" aria-label="Remove Ingredient Row">
-      <svg viewBox="0 0 24 24">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
       </svg>
     </button>
@@ -1272,9 +1341,9 @@
 
 <template id="instruction-form-row-template">
   <div class="dynamic-list-item instruction-row">
-    <textarea name="instruction" aria-label="Instruction Step" rows="2" required></textarea>
+    <textarea name="instruction" aria-label="Instruction Step" rows="2" placeholder="Describe this step..." required></textarea>
     <button type="button" class="button danger icon-button" data-action="form-remove-row" aria-label="Remove Instruction Step">
-      <svg viewBox="0 0 24 24">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
       </svg>
     </button>
@@ -1556,7 +1625,11 @@
 
       const { view, id } = this.currentState;
       document.querySelectorAll('.nav-link[data-view]').forEach(link => {
-        const isSelected = link.dataset.view === view || (view.includes('recipe') && link.dataset.view === 'recipes');
+        const linkView = link.dataset.view;
+        const isSelected = linkView === view || 
+                          (view.includes('recipe') && linkView === 'recipes') ||
+                          (view === 'add-recipe' && linkView === 'recipes') ||
+                          (view === 'edit-recipe' && linkView === 'recipes');
         link.setAttribute('aria-selected', isSelected);
       });
 
@@ -1838,7 +1911,32 @@
 
     renderRecipeForm(id = null) {
       const isEditing = id !== null;
-      const recipe = isEditing ? this.state.recipes.find(r => r.id === id) : { name: '', servings: 1, category: '', tags: [], ingredients: [{}], instructions: [''], notes: '' };
+      let recipe = isEditing ? this.state.recipes.find(r => r.id === id) : { name: '', servings: 1, category: '', tags: [], ingredients: [{}], instructions: [''], notes: '' };
+      
+      // Try to restore draft if not editing
+      if (!isEditing) {
+        const draft = localStorage.getItem('recipeFormDraft');
+        if (draft) {
+          try {
+            const parsedDraft = JSON.parse(draft);
+            // Only use draft if it doesn't have an ID (not from editing)
+            if (!parsedDraft.id) {
+              recipe = {
+                name: parsedDraft.name || '',
+                servings: parsedDraft.servings || 1,
+                category: parsedDraft.category || '',
+                tags: parsedDraft.tags ? parsedDraft.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+                ingredients: parsedDraft.ingredients?.length ? parsedDraft.ingredients : [{}],
+                instructions: parsedDraft.instructions?.length ? parsedDraft.instructions : [''],
+                notes: parsedDraft.notes || ''
+              };
+            }
+          } catch (e) {
+            console.error('Failed to parse draft:', e);
+          }
+        }
+      }
+      
       if (isEditing && !recipe) {
         return this.navigateToView('recipes');
       }
@@ -1861,13 +1959,29 @@
 
       this.root.appendChild(view);
 
-      const backTarget = isEditing ? `data-view="recipes" data-id="${id}"` : `data-view="recipes"`;
-      
-      // Add back link at the top of the form
-      const backLink = document.createElement('div');
-      backLink.style.marginBottom = 'var(--spacing-md)';
-      backLink.innerHTML = `<button class="button secondary" data-action="navigate" ${backTarget}>← Back to Recipe</button>`;
-      this.root.insertBefore(backLink, this.root.firstChild);
+      // Auto-save draft to localStorage on input
+      const autoSaveDraft = () => {
+        const formData = new FormData(form);
+        const draft = {
+          id: form.dataset.id || null,
+          name: formData.get('name'),
+          servings: formData.get('servings'),
+          category: formData.get('category'),
+          tags: formData.get('tags'),
+          ingredients: Array.from(form.querySelectorAll('.ingredient-row')).map(row => ({
+            ingredientId: row.querySelector('[name="ingredientId"]').value,
+            amount: row.querySelector('[name="amount"]').value,
+            measurement: row.querySelector('[name="measurement"]').value
+          })),
+          instructions: Array.from(form.querySelectorAll('[name="instruction"]')).map(input => input.value),
+          notes: formData.get('notes')
+        };
+        localStorage.setItem('recipeFormDraft', JSON.stringify(draft));
+      };
+
+      // Add input event listeners for auto-save
+      form.addEventListener('input', autoSaveDraft);
+      form.addEventListener('change', autoSaveDraft);
     }
 
     renderIngredientsList() {
@@ -2045,6 +2159,10 @@
         this.state.recipes.push(recipeData);
       }
       this.saveData();
+      
+      // Clear the draft on successful save
+      localStorage.removeItem('recipeFormDraft');
+      
       this.showToast('Recipe saved!');
       this.navigateToView('recipes', recipeData.id);
     }
@@ -2289,6 +2407,7 @@
       const progressBar = this.root.querySelector('[role="progressbar"]');
       progressBar.setAttribute('aria-valuenow', progress);
       progressBar.setAttribute('aria-valuetext', progressText);
+      progressBar.setAttribute('aria-label', `Cooking ${recipe.name}`);
 
       this.root.querySelector('[data-text="step-count"]').textContent = progressText;
       this.root.querySelector('[data-element="progress-indicator"]').style.width = `${progress}%`;
@@ -2341,10 +2460,14 @@
       this.toast.textContent = message;
       this.toast.className = 'toast-notification';
       this.toast.classList.add('show');
+      this.toast.setAttribute('role', 'status');
+      this.toast.setAttribute('aria-live', 'polite');
       if (type === 'error') {
         this.toast.classList.add('error');
+        this.toast.setAttribute('aria-live', 'assertive');
       }
-      this.toastTimeout = setTimeout(() => this.toast.classList.remove('show'), 3000);
+      // Increased from 3s to 5s for better accessibility
+      this.toastTimeout = setTimeout(() => this.toast.classList.remove('show'), 5000);
     }
 
     getIngredientOptions(selectedId = null) {
@@ -2462,12 +2585,12 @@
       }
       const availableOptions = this.state.ingredients.filter(ing => !this.activeFilters.includes(ing.id));
       if (availableOptions.length === 0) {
-        container.innerHTML = '<p style="opacity: 0.7; font-size: 0.9rem;">All ingredients are being filtered</p>';
+        container.innerHTML = '<p style="color: var(--color-text-secondary); font-size: 0.9rem;">All ingredients are being filtered</p>';
         return;
       }
 
       // Create clickable ingredient buttons instead of dropdown
-      container.innerHTML = '<div style="margin-bottom: var(--spacing-xs); opacity: 0.8; font-size: 0.9rem;">Add ingredient filter:</div>';
+      container.innerHTML = '<div style="margin-bottom: var(--spacing-xs); color: var(--color-text-secondary); font-size: 0.9rem;">Add ingredient filter:</div>';
       const buttonsContainer = document.createElement('div');
       buttonsContainer.style.display = 'flex';
       buttonsContainer.style.flexWrap = 'wrap';
@@ -2494,7 +2617,7 @@
       if (availableOptions.length > 10) {
         const moreText = document.createElement('p');
         moreText.style.fontSize = '0.85rem';
-        moreText.style.opacity = '0.7';
+        moreText.style.color = 'var(--color-text-secondary)';
         moreText.style.marginTop = 'var(--spacing-xs)';
         moreText.textContent = `+${availableOptions.length - 10} more ingredients available`;
         container.appendChild(moreText);
