@@ -64,14 +64,59 @@
         color: var(--color-primary);
       }
 
-      & nav ul {
+      & nav {
         display: flex;
-        justify-content: center;
-        list-style: none;
-        gap: var(--spacing-sm);
+        justify-content: space-between;
+        align-items: center;
         flex-wrap: wrap;
-        margin: 0;
-        padding: 0;
+        gap: var(--spacing-md);
+
+        & ul {
+          display: flex;
+          justify-content: center;
+          list-style: none;
+          gap: var(--spacing-sm);
+          flex-wrap: wrap;
+          margin: 0;
+          padding: 0;
+          flex: 1;
+        }
+
+        & .shopping-list-btn {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-xs);
+          padding: var(--spacing-sm) var(--spacing-md);
+          font-size: 0.9rem;
+          white-space: nowrap;
+
+          & svg {
+            fill: currentColor;
+          }
+
+          &.selected {
+            background-color: var(--color-primary);
+            color: var(--color-on-primary);
+            border-color: var(--color-primary);
+            font-weight: 700;
+          }
+        }
+
+        @media (max-width: 768px) {
+          & {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          & ul {
+            justify-content: center;
+            margin-bottom: var(--spacing-sm);
+          }
+
+          & .shopping-list-btn {
+            align-self: center;
+          }
+        }
       }
     }
 
@@ -644,15 +689,15 @@
         <button class="nav-link" data-action="navigate" data-view="recipes">Recipes</button>
       </li>
       <li>
-        <button class="nav-link" data-action="navigate" data-view="cupboard">Cupboard</button>
-      </li>
-      <li>
-        <button class="nav-link" data-action="navigate" data-view="shopping-list">Shopping List</button>
-      </li>
-      <li>
         <button class="nav-link" data-action="navigate" data-view="ingredients">Ingredients</button>
       </li>
     </ul>
+    <button class="button primary shopping-list-btn" data-action="navigate" data-view="shopping-list" title="Shopping List">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+        <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18Z"/>
+      </svg>
+      Shopping List
+    </button>
   </nav>
 </header>
 <main id="app-root"></main>
@@ -813,36 +858,7 @@
   </div>
 </template>
 
-<template id="cupboard-view-template">
-  <section>
-    <div class="page-header"><h2>My Cupboard</h2></div>
-    <form data-action="cupboard-add" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: var(--spacing-sm); align-items: flex-end; margin-bottom: var(--spacing-lg);">
-      <div class="form-group" style="margin:0;">
-        <label for="cupboard-ingredient">Ingredient</label>
-        <div class="select-wrapper">
-          <select name="ingredientId" id="cupboard-ingredient" required></select>
-        </div>
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label for="cupboard-amount">Amount</label>
-        <input type="text" name="amount" id="cupboard-amount" required>
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label for="cupboard-measurement">Unit</label>
-        <input type="text" name="measurement" id="cupboard-measurement">
-      </div>
-      <button type="submit" class="button primary">Add</button>
-    </form>
-    <ul style="list-style:none; padding:0" data-list-target="cupboard"></ul>
-  </section>
-</template>
 
-<template id="cupboard-item-template">
-  <li class="generic-list-item">
-    <span><strong data-text="name"></strong> (<span data-text="details"></span>)</span>
-    <button class="button danger" data-action="cupboard-remove">Remove</button>
-  </li>
-</template>
 
 <template id="ingredients-list-template">
   <section>
@@ -1007,14 +1023,23 @@
       this.footer.innerHTML = '';
 
       const { view, id } = this.currentState;
-      document.querySelectorAll('[data-view]').forEach(link => {
+      document.querySelectorAll('.nav-link[data-view]').forEach(link => {
         const isSelected = link.dataset.view === view || (view.includes('recipe') && link.dataset.view === 'recipes');
         link.setAttribute('aria-selected', isSelected);
       });
+      
+      // Handle shopping list button selection
+      const shoppingBtn = document.querySelector('.shopping-list-btn');
+      if (shoppingBtn) {
+        if (view === 'shopping-list') {
+          shoppingBtn.classList.add('selected');
+        } else {
+          shoppingBtn.classList.remove('selected');
+        }
+      }
 
       const routes = {
         'recipes': () => id ? this.renderRecipeDetail(id) : this.renderRecipesList(),
-        'cupboard': () => this.renderCupboard(),
         'ingredients': () => this.renderIngredientsList(),
         'shopping-list': () => this.renderShoppingList(),
         'add-recipe': () => this.renderRecipeForm(),
@@ -1039,7 +1064,7 @@
         },
         'delete-recipe': () => this.deleteRecipe(parseInt(id)),
         'delete-ingredient': () => this.deleteIngredient(parseInt(id), target),
-        'cupboard-remove': () => this.removeFromCupboard(parseInt(id), target),
+
         'add-to-shopping-list': () => this.addToShoppingList(target),
         'remove-from-shopping-list': () => this.removeFromShoppingList(parseInt(id), target),
         'clear-shopping-list': () => this.clearShoppingList(),
@@ -1130,7 +1155,6 @@
 
       const actions = {
         'save-recipe': () => this.saveRecipe(form),
-        'cupboard-add': () => this.addToCupboard(form),
         'add-ingredient-inline': () => this.addInlineIngredient(form)
       };
 
@@ -1198,14 +1222,14 @@
           li.dataset.id = ing.ingredientId;
           
           const removeBtn = document.createElement('button');
-          removeBtn.className = 'icon-button danger';
+          removeBtn.className = 'icon-button success';
           removeBtn.dataset.action = 'remove-from-shopping-list';
           removeBtn.dataset.id = ing.ingredientId;
-          removeBtn.title = 'Remove from shopping list';
+          removeBtn.title = 'In shopping list - click to remove';
           removeBtn.setAttribute('aria-label', `Remove ${ingredient?.name || 'ingredient'} from shopping list`);
           removeBtn.innerHTML = `
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18M16,11L18.78,6H6.14L8.5,11H16M14.5,7L12.5,10L10.5,7L12.5,4L14.5,7Z"/>
+              <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8"/>
             </svg>
           `;
           actionsDiv.appendChild(removeBtn);
@@ -1228,7 +1252,7 @@
           addToListBtn.setAttribute('aria-label', `Add ${ingredient?.name || 'ingredient'} to shopping list`);
           addToListBtn.innerHTML = `
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M11,9H13V6H16V4H13V1H11V4H8V6H11M7,18A2,2 0 0,0 5,20A2,2 0 0,0 7,22A2,2 0 0,0 9,20A2,2 0 0,0 7,18M17,18A2,2 0 0,0 15,20A2,2 0 0,0 17,22A2,2 0 0,0 19,20A2,2 0 0,0 17,18M7.17,14.75L7.2,14.63L8.1,13H15.55C16.3,13 16.96,12.59 17.3,11.97L21,5.48V5A1,1 0 0,0 20,4H5.21L4.27,2H1V4H3L6.6,11.59L5.25,14.04C5.09,14.32 5,14.65 5,15A2,2 0 0,0 7,17H19V15H7.42C7.29,15 7.17,14.89 7.17,14.75Z"/>
+              <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18Z"/>
             </svg>
           `;
           actionsDiv.appendChild(addToListBtn);
@@ -1323,22 +1347,7 @@
       this.root.appendChild(view);
     }
 
-    renderCupboard() {
-      const view = this.cloneTemplate('cupboard-view-template');
-      view.querySelector('select[name="ingredientId"]').innerHTML = `<option value="">Select an ingredient...</option>${this.getIngredientOptions()}`;
 
-      const list = view.querySelector('[data-list-target="cupboard"]');
-      if (this.state.cupboard.length === 0) {
-        list.innerHTML = `<li class="empty-state"><p>Your cupboard is empty. Add some ingredients you have on hand.</p></li>`;
-      } else {
-        this.state.cupboard
-          .map(item => ({ ...item, ingredient: this.state.ingredients.find(i => i.id === item.ingredientId) }))
-          .filter(item => item.ingredient)
-          .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
-          .forEach(item => list.appendChild(this.createCupboardListItem(item)));
-      }
-      this.root.appendChild(view);
-    }
 
     renderShoppingList() {
       const view = this.cloneTemplate('shopping-list-template');
@@ -1580,56 +1589,7 @@
       li.replaceWith(this.createIngredientListItem(ingredient));
     }
 
-    addToCupboard(form) {
-      const formData = new FormData(form);
-      const ingredientId = parseInt(formData.get('ingredientId'));
-      const amount = formData.get('amount');
-      const measurement = formData.get('measurement');
-      if (!ingredientId || !amount) {
-        return;
-      }
 
-      const existingIndex = this.state.cupboard.findIndex(i => i.ingredientId === ingredientId);
-      if (existingIndex > -1) {
-        this.state.cupboard[existingIndex] = { ingredientId, amount, measurement };
-      } else {
-        this.state.cupboard.push({ ingredientId, amount, measurement });
-      }
-      this.saveData();
-
-      // --- Efficient DOM update ---
-      const list = this.root.querySelector('[data-list-target="cupboard"]');
-      const emptyState = list.querySelector('.empty-state');
-      if (emptyState) {
-        emptyState.remove();
-      }
-
-      // Remove old item if it exists, then add new/updated item and re-sort
-      const oldLi = list.querySelector(`[data-id="${ingredientId}"]`);
-      if (oldLi) {
-        oldLi.remove();
-      }
-
-      const itemData = { ingredientId, amount, measurement, ingredient: this.state.ingredients.find(i => i.id === ingredientId) };
-      list.appendChild(this.createCupboardListItem(itemData));
-
-      Array.from(list.children)
-        .sort((a, b) => a.dataset.name.localeCompare(b.dataset.name))
-        .forEach(li => list.appendChild(li));
-
-      form.reset();
-      this.showToast('Cupboard updated.');
-    }
-
-    removeFromCupboard(id, target) {
-      this.state.cupboard = this.state.cupboard.filter(i => i.ingredientId !== id);
-      this.saveData();
-      target.closest('li').remove();
-      if (!this.root.querySelector('[data-list-target="cupboard"]').hasChildNodes()) {
-        this.renderCupboard(); // Re-render to show empty state
-      }
-      this.showToast('Removed from cupboard.');
-    }
 
     addToShoppingList(target) {
       const { id, amount, measurement, recipeName } = target.dataset;
@@ -1657,15 +1617,15 @@
 
       // Update icon button to show remove state
       if (button && button.tagName === 'BUTTON') {
-        button.className = 'icon-button danger';
+        button.className = 'icon-button success';
         button.dataset.action = 'remove-from-shopping-list';
         button.dataset.id = ingredientId;
-        button.title = 'Remove from shopping list';
+        button.title = 'In shopping list - click to remove';
         const ingredientName = button.getAttribute('aria-label')?.split(' to shopping')[0].replace('Add ', '') || 'ingredient';
         button.setAttribute('aria-label', `Remove ${ingredientName} from shopping list`);
         button.innerHTML = `
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18M16,11L18.78,6H6.14L8.5,11H16M14.5,7L12.5,10L10.5,7L12.5,4L14.5,7Z"/>
+            <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8"/>
           </svg>
         `;
       }
@@ -1723,7 +1683,7 @@
           button.setAttribute('aria-label', `Add ${ingredientName} to shopping list`);
           button.innerHTML = `
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M11,9H13V6H16V4H13V1H11V4H8V6H11M7,18A2,2 0 0,0 5,20A2,2 0 0,0 7,22A2,2 0 0,0 9,20A2,2 0 0,0 7,18M17,18A2,2 0 0,0 15,20A2,2 0 0,0 17,22A2,2 0 0,0 19,20A2,2 0 0,0 17,18M7.17,14.75L7.2,14.63L8.1,13H15.55C16.3,13 16.96,12.59 17.3,11.97L21,5.48V5A1,1 0 0,0 20,4H5.21L4.27,2H1V4H3L6.6,11.59L5.25,14.04C5.09,14.32 5,14.65 5,15A2,2 0 0,0 7,17H19V15H7.42C7.29,15 7.17,14.89 7.17,14.75Z"/>
+              <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18Z"/>
             </svg>
           `;
         }
@@ -1891,15 +1851,7 @@
       return itemEl;
     }
 
-    createCupboardListItem(item) {
-      const itemEl = this.cloneTemplate('cupboard-item-template').firstElementChild;
-      itemEl.dataset.id = item.ingredientId;
-      itemEl.dataset.name = item.ingredient.name; // For sorting
-      itemEl.querySelector('[data-text="name"]').textContent = item.ingredient.name;
-      itemEl.querySelector('[data-text="details"]').textContent = `${item.amount} ${item.measurement || ''}`.trim();
-      itemEl.querySelector('[data-action="cupboard-remove"]').dataset.id = item.ingredientId;
-      return itemEl;
-    }
+
 
     addIngredientRowToForm(container = null, data = {}) {
       container = container || this.root.querySelector('[data-list-target="ingredients"]');
@@ -2059,11 +2011,6 @@
             ],
             notes: ''
           }
-        ],
-        cupboard: [
-          { ingredientId: 1, amount: "2", measurement: "heads" },
-          { ingredientId: 2, amount: "1", measurement: "bottle" },
-          { ingredientId: 6, amount: "1", measurement: "container" }
         ],
         shoppingList: []
       };
