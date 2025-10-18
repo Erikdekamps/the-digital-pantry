@@ -376,6 +376,46 @@
       background-color: rgba(0, 0, 0, 0.2);
     }
 
+    .filter-badge {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      padding: var(--spacing-xs) var(--spacing-sm);
+      background: var(--color-primary);
+      color: var(--color-on-primary);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-speed);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-badge:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      background: var(--color-primary-dark, var(--color-primary));
+      filter: brightness(1.1);
+    }
+
+    .filter-badge button {
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      padding: 0;
+      margin-left: 2px;
+      font-size: 1.2rem;
+      line-height: 1;
+      opacity: 0.8;
+      transition: opacity var(--transition-speed);
+    }
+
+    .filter-badge button:hover {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+
     .filter-ingredient-btn {
       display: inline-flex;
       align-items: center;
@@ -769,6 +809,12 @@
       font-size: 0.7rem;
       font-weight: 600;
       border-radius: 10px;
+      transition: all var(--transition-speed) ease;
+    }
+
+    .ingredient-item:hover .recipe-count-badge {
+      transform: scale(1.15);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     .ingredient-name {
@@ -1104,18 +1150,12 @@
     <div class="page-header">
       <h2>My Recipes</h2>
       <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
-        <button class="button secondary" data-action="toggle-search-widget" aria-expanded="false" aria-controls="search-widget">Filter Recipes</button>
+        <div id="recipe-filter-badge" style="display: flex; gap: var(--spacing-sm); align-items: center;"></div>
         <button class="icon-button primary" data-action="navigate" data-view="add-recipe" title="Add new recipe" aria-label="Add new recipe">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/>
           </svg>
         </button>
-      </div>
-    </div>
-    <div class="search-widget" id="search-widget" data-container="search-widget" role="search" aria-label="Recipe filters">
-      <div>
-        <div id="filter-dropdowns"></div>
-        <div id="active-filters" role="region" aria-label="Active filters"></div>
       </div>
     </div>
     <div data-list-target="recipes"></div>
@@ -1896,22 +1936,6 @@
           const modal = target.closest('.modal-overlay');
           if (modal) modal.remove();
         },
-        'toggle-search-widget': () => {
-          const widget = this.root.querySelector('[data-container="search-widget"]');
-          const isOpening = !widget.classList.contains('is-open');
-          target.setAttribute('aria-expanded', isOpening);
-          widget.classList.toggle('is-open');
-          
-          // Save panel state to local storage
-          this.uiState.filterPanelOpen = isOpening;
-          this.saveData();
-          
-          // Update button text if filters are active
-          if (!isOpening && this.activeFilters.length > 0) {
-            // Just closed, ensure button reflects filter state
-            this.updateFilterButton();
-          }
-        },
         'toggle-section': () => {
           const section = target.dataset.section;
           const recipeId = this.currentState.id;
@@ -2022,23 +2046,12 @@
       if (this.uiState.filterSettings && this.uiState.filterSettings.activeFilters) {
         this.activeFilters = this.uiState.filterSettings.activeFilters;
         if (this.activeFilters.length > 0) {
-          this.renderActiveFilters();
           this.filterRecipeList();
         }
       }
       
       this.addFilterDropdown();
       this.updateFilterButton();
-      
-      // Restore filter panel open state
-      setTimeout(() => {
-        const widget = this.root.querySelector('[data-container="search-widget"]');
-        const toggleBtn = this.root.querySelector('[data-action="toggle-search-widget"]');
-        if (widget && toggleBtn && this.uiState.filterPanelOpen) {
-          widget.classList.add('is-open');
-          toggleBtn.setAttribute('aria-expanded', 'true');
-        }
-      }, 50);
     }
 
     renderRecipeDetail(id) {
@@ -2704,9 +2717,13 @@
       this.uiState.filterSettings = { activeFilters: this.activeFilters };
       this.saveData();
       
-      this.renderActiveFilters();
-      this.root.querySelector('#filter-dropdowns').innerHTML = ''; // Clear and re-add
-      this.addFilterDropdown();
+      // Update filter dropdowns if they exist (ingredients page)
+      const filterDropdowns = this.root.querySelector('#filter-dropdowns');
+      if (filterDropdowns) {
+        filterDropdowns.innerHTML = '';
+        this.addFilterDropdown();
+      }
+      
       this.filterRecipeList();
       this.updateFilterButton();
       
@@ -2730,22 +2747,15 @@
         // Add to filters
         this.activeFilters.push(ingredientId);
         
-        // Save filter settings and panel state
+        // Save filter settings
         this.uiState.filterSettings = { activeFilters: this.activeFilters };
-        this.uiState.filterPanelOpen = true;
         this.saveData();
         
         // Navigate to recipes view with filter active
         this.navigateToView('recipes');
         
-        // Open the filter panel automatically
+        // Update filter display
         setTimeout(() => {
-          const widget = this.root.querySelector('[data-container="search-widget"]');
-          const toggleBtn = this.root.querySelector('[data-action="toggle-search-widget"]');
-          if (widget && !widget.classList.contains('is-open')) {
-            widget.classList.add('is-open');
-            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
-          }
           this.updateFilterButton();
         }, 100);
         
@@ -2755,24 +2765,6 @@
         ).length;
         this.showToast(`Showing ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} with ${ingredient.name}`);
       }
-    }
-
-    renderActiveFilters() {
-      const container = this.root.querySelector('#active-filters');
-      if (!container) return;
-      
-      container.innerHTML = '';
-      if (this.activeFilters.length === 0) {
-        // Don't show any message, just empty
-        return;
-      }
-      this.activeFilters.forEach(id => {
-        const ingredient = this.state.ingredients.find(i => i.id === id);
-        if (ingredient) {
-          const badgeHTML = `${ingredient.name} <button class="filter-badge-remove" data-action="remove-search-filter" data-id="${id}" aria-label="Remove ${ingredient.name} filter">&times;</button>`;
-          container.appendChild(this.createBadge(badgeHTML));
-        }
-      });
     }
 
     addFilterDropdown() {
@@ -2831,7 +2823,6 @@
       this.uiState.filterSettings = { activeFilters: this.activeFilters };
       this.saveData();
       
-      this.renderActiveFilters();
       this.root.querySelector('#filter-dropdowns').innerHTML = '';
       this.addFilterDropdown();
       this.filterRecipeList();
@@ -2845,18 +2836,24 @@
     }
 
     updateFilterButton() {
-      const toggleBtn = this.root.querySelector('[data-action="toggle-search-widget"]');
-      if (!toggleBtn) return;
+      const badgeContainer = this.root.querySelector('#recipe-filter-badge');
+      if (!badgeContainer) return;
+      
+      badgeContainer.innerHTML = '';
       
       if (this.activeFilters.length > 0) {
-        const filterCount = this.activeFilters.length;
-        toggleBtn.textContent = `Filter Recipes (${filterCount} active)`;
-        toggleBtn.classList.remove('secondary');
-        toggleBtn.classList.add('primary');
-      } else {
-        toggleBtn.textContent = 'Filter Recipes';
-        toggleBtn.classList.remove('primary');
-        toggleBtn.classList.add('secondary');
+        this.activeFilters.forEach(ingredientId => {
+          const ingredient = this.state.ingredients.find(i => i.id === ingredientId);
+          if (ingredient) {
+            const badge = document.createElement('span');
+            badge.className = 'filter-badge';
+            badge.innerHTML = `
+              ${ingredient.name}
+              <button data-action="remove-search-filter" data-id="${ingredientId}" title="Remove filter" aria-label="Remove ${ingredient.name} filter">×</button>
+            `;
+            badgeContainer.appendChild(badge);
+          }
+        });
       }
     }
 
