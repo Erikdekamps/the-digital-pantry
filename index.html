@@ -734,21 +734,16 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: var(--spacing-md) 0;
-      border-bottom: 1px solid var(--color-border);
-      transition: background-color var(--transition-speed) ease;
-    }
-
-    .ingredient-item:last-child {
-      border-bottom: none;
+      padding: var(--spacing-sm) var(--spacing-md);
+      background: var(--color-surface);
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-speed) ease;
+      border: 1px solid transparent;
     }
 
     .ingredient-item:hover {
-      background-color: var(--color-background);
-      margin: 0 calc(-1 * var(--spacing-sm));
-      padding-left: var(--spacing-sm);
-      padding-right: var(--spacing-sm);
-      border-radius: var(--radius-sm);
+      border-color: var(--color-border);
+      transform: translateX(4px);
     }
 
     .ingredient-item [data-action="filter-by-ingredient"] {
@@ -766,35 +761,31 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 24px;
-      height: 24px;
+      min-width: 20px;
+      height: 20px;
       padding: 0 var(--spacing-xs);
       background-color: var(--color-primary);
       color: var(--color-on-primary);
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 600;
-      border-radius: 12px;
-      transition: transform var(--transition-speed) ease;
-    }
-
-    .ingredient-item:hover .recipe-count-badge {
-      transform: scale(1.1);
+      border-radius: 10px;
     }
 
     .ingredient-name {
       flex: 1;
-      font-size: 1rem;
+      font-size: 0.95rem;
       color: var(--color-on-background);
-      font-weight: 500;
     }
 
     .ingredient-actions {
       display: flex;
       gap: var(--spacing-xs);
+      opacity: 0.7;
+      transition: opacity var(--transition-speed) ease;
     }
 
     .ingredient-item:hover .ingredient-actions {
-      filter: brightness(1.1);
+      opacity: 1;
     }
 
     .ingredient-item-editing {
@@ -1269,39 +1260,32 @@
 
 <template id="ingredients-list-template">
   <section>
-    <div class="page-header"><h2>Master Ingredients List</h2></div>
-    <form data-action="add-ingredient-inline" style="margin-bottom: var(--spacing-lg);">
-      <div class="form-group" style="margin-bottom: var(--spacing-sm);">
-        <label for="new-ingredient-name">New Ingredient Name</label>
-        <div style="display: flex; gap: var(--spacing-sm);">
-          <input type="text" name="name" id="new-ingredient-name" placeholder="Enter ingredient name..." required style="flex: 1;">
-          <button type="submit" class="button primary small">Quick Add</button>
-        </div>
+    <div class="page-header">
+      <h2>Ingredients</h2>
+    </div>
+    
+    <form data-action="add-ingredient-inline" class="ingredient-add-form" style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--color-surface); border-radius: var(--radius); border: 1px solid var(--color-border);">
+      <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+        <input type="text" name="name" placeholder="Add ingredient..." required style="flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background); color: var(--color-on-background);">
+        <button type="submit" class="button primary small">Add</button>
       </div>
     </form>
-    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-bottom: var(--spacing-md);">
-      💡 Tip: Click on an ingredient to filter recipes that use it. Numbers show recipe count.
-    </p>
-    <div class="ingredients-accordion" data-list-target="ingredients"></div>
+    
+    <div data-list-target="ingredients" style="display: flex; flex-direction: column; gap: 2px;"></div>
   </section>
 </template>
 
 <template id="ingredient-item-template">
-  <li class="ingredient-item" data-id="">
+  <div class="ingredient-item" data-id="">
     <span class="ingredient-name" data-text="name"></span>
     <div class="ingredient-actions">
-      <button class="button icon-button" data-action="edit-ingredient-inline" aria-label="Edit">
+      <button class="icon-button small" data-action="delete-ingredient" title="Delete" aria-label="Delete">
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
-        </svg>
-      </button>
-      <button class="button icon-button danger" data-action="delete-ingredient" aria-label="Delete">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+          <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
         </svg>
       </button>
     </div>
-  </li>
+  </div>
 </template>
 
 <template id="cooking-mode-template">
@@ -1906,8 +1890,6 @@
         'add-to-shopping-list': () => this.addToShoppingList(target),
         'remove-from-shopping-list': () => this.removeFromShoppingList(parseInt(id), target),
         'clear-shopping-list': () => this.clearShoppingList(),
-        'edit-ingredient-inline': () => this.renderInlineIngredientEdit(parseInt(id), target),
-        'save-ingredient-inline': () => this.saveInlineIngredient(parseInt(id), target),
         'toggle-theme': () => this.toggleTheme(),
         'close-modal': () => {
           event.preventDefault();
@@ -2072,19 +2054,14 @@
       const container = view.querySelector('[data-list-target="ingredients"]');
       
       if (this.state.ingredients.length === 0) {
-        container.innerHTML = `<div class="empty-state"><p>No ingredients defined yet.</p></div>`;
+        container.innerHTML = `<div class="empty-state"><p>No ingredients yet. Click + to add one.</p></div>`;
       } else {
         // Simple sorted list of ingredients
-        const list = document.createElement('ul');
-        list.className = 'ingredient-list';
-        
         this.state.ingredients
           .sort((a, b) => a.name.localeCompare(b.name))
           .forEach(ing => {
-            list.appendChild(this.createIngredientListItem(ing));
+            container.appendChild(this.createIngredientListItem(ing));
           });
-        
-        container.appendChild(list);
       }
       this.root.appendChild(view);
     }
@@ -2254,7 +2231,7 @@
       this.state.ingredients.push(newIngredient);
       this.saveData();
       
-      // Re-render the ingredients list with the new accordion
+      // Re-render the ingredients list
       this.navigateToView('ingredients');
       
       this.showToast('Ingredient added.');
@@ -2337,14 +2314,6 @@
       this.navigateToView('ingredients');
       this.showToast('Ingredient updated.');
     }
-
-    cancelInlineIngredientEdit(id, element) {
-      const li = element.closest ? element.closest('li') : element;
-      const ingredient = this.state.ingredients.find(i => i.id === id);
-      li.replaceWith(this.createIngredientListItem(ingredient));
-    }
-
-
 
     addToShoppingList(target) {
       // Find the list item first to get all the data attributes
@@ -2649,10 +2618,6 @@
         countBadge.title = `${recipeCount} recipe${recipeCount !== 1 ? 's' : ''}`;
         clickableArea.appendChild(countBadge);
       }
-
-      const editBtn = itemEl.querySelector('[data-action="edit-ingredient-inline"]');
-      editBtn.dataset.id = ing.id;
-      editBtn.setAttribute('aria-label', `Edit ${ing.name}`);
 
       const deleteBtn = itemEl.querySelector('[data-action="delete-ingredient"]');
       deleteBtn.dataset.id = ing.id;
