@@ -369,11 +369,11 @@
       border-radius: 50%;
       cursor: pointer;
       transition: background-color var(--transition-speed);
-    }
 
-    .filter-badge-remove:hover,
-    .filter-badge-remove:focus-visible {
-      background-color: rgba(0, 0, 0, 0.2);
+      &:hover,
+      &:focus-visible {
+        background-color: rgba(0, 0, 0, 0.2);
+      }
     }
 
     .filter-badge {
@@ -389,31 +389,31 @@
       cursor: pointer;
       transition: all var(--transition-speed);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
 
-    .filter-badge:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      background: var(--color-primary-dark, var(--color-primary));
-      filter: brightness(1.1);
-    }
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        background: var(--color-primary-dark, var(--color-primary));
+        filter: brightness(1.1);
+      }
 
-    .filter-badge button {
-      background: none;
-      border: none;
-      color: inherit;
-      cursor: pointer;
-      padding: 0;
-      margin-left: 2px;
-      font-size: 1.2rem;
-      line-height: 1;
-      opacity: 0.8;
-      transition: opacity var(--transition-speed);
-    }
+      & button {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        padding: 0;
+        margin-left: 2px;
+        font-size: 1.2rem;
+        line-height: 1;
+        opacity: 0.8;
+        transition: opacity var(--transition-speed);
 
-    .filter-badge button:hover {
-      opacity: 1;
-      transform: scale(1.2);
+        &:hover {
+          opacity: 1;
+          transform: scale(1.2);
+        }
+      }
     }
 
     .filter-ingredient-btn {
@@ -559,10 +559,10 @@
       border-bottom: 1px solid var(--color-border);
       cursor: pointer;
       transition: background-color var(--transition-speed);
-    }
 
-    .ingredient-list-item:hover {
-      background-color: rgba(255, 255, 255, 0.05);
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
     }
 
     .shopping-list-item {
@@ -575,138 +575,106 @@
       transition: opacity var(--transition-speed);
       cursor: pointer;
       position: relative;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+
+      &.checked {
+        opacity: 0.6;
+
+        & strong,
+        & span {
+          text-decoration: line-through;
+        }
+      }
+
+      & button {
+        position: relative;
+        z-index: 2;
+        pointer-events: auto;
+      }
     }
 
-    .shopping-list-item:hover {
-      background-color: rgba(255, 255, 255, 0.05);
-    }
+    .detail-view {
+      & .detail-section {
+        background: var(--color-surface);
+        border-radius: var(--radius);
+        margin-bottom: var(--spacing-lg);
+        padding: var(--spacing-md);
 
-    .shopping-list-item.checked {
-      opacity: 0.6;
-    }
+        & h3 {
+          border-bottom: 1px solid var(--color-border);
+          padding-bottom: var(--spacing-sm);
+          margin-top: 0;
+          margin-bottom: var(--spacing-md);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
 
-    .shopping-list-item.checked strong,
-    .shopping-list-item.checked span {
-      text-decoration: line-through;
-    }
+        &[data-collapsible] {
+          padding: 0;
 
-    .shopping-list-item button {
-      position: relative;
-      z-index: 2;
-      pointer-events: auto;
-    }
+          & h3 {
+            padding: var(--spacing-md) var(--spacing-md) var(--spacing-md);
+            border-bottom: none;
+            margin-bottom: 0;
+          }
+        }
 
-    .detail-view .detail-section {
-      background: var(--color-surface);
-      border-radius: var(--radius);
-      margin-bottom: var(--spacing-lg);
-      padding: var(--spacing-md);
-    }
+        &.collapsed {
+          & .chevron {
+            transform: rotate(180deg);
+          }
 
-    .detail-view .detail-section h3 {
-      border-bottom: 1px solid var(--color-border);
-      padding-bottom: var(--spacing-sm);
-      margin-top: 0;
-      margin-bottom: var(--spacing-md);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+          & .detail-section-content {
+            max-height: 0 !important;
+            opacity: 0;
+            padding: 0;
+          }
 
-    .detail-view .detail-section[data-collapsible] {
-      padding: 0;
-    }
+          & h3 {
+            margin-bottom: 0;
+            border-bottom: none;
+          }
+        }
+      }
 
-    .detail-view .detail-section[data-collapsible] h3 {
-      padding: var(--spacing-md) var(--spacing-md) var(--spacing-md);
-      border-bottom: none;
-      margin-bottom: 0;
-    }
+      & ul,
+      & ol {
+        padding-left: 0;
+        list-style: none;
+        margin: 0;
+      }
 
-    .detail-section-toggle {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: var(--spacing-sm) var(--spacing-md);
-      margin: calc(-1 * var(--spacing-sm)) calc(-1 * var(--spacing-md));
-      color: var(--color-primary);
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-sm);
-      font-size: 1rem;
-      font-weight: 600;
-      width: calc(100% + 2 * var(--spacing-md));
-      text-align: left;
-      border-radius: var(--radius);
-      transition: background-color var(--transition-speed);
-    }
+      & ul[data-list-target="ingredients"] {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
 
-    .detail-section-toggle:hover {
-      background-color: var(--color-background);
-    }
+        & li {
+          padding: var(--spacing-xs) 0;
+        }
+      }
 
-    .detail-section-toggle .chevron {
-      margin-left: auto;
-      transition: transform var(--transition-speed);
-    }
+      & ol {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
 
-    .detail-section-toggle .chevron svg {
-      width: 20px;
-      height: 20px;
-      fill: currentColor;
-    }
+        & li {
+          list-style: decimal inside;
+          border-bottom: none;
+          padding: 0;
 
-    .detail-section.collapsed .chevron {
-      transform: rotate(180deg);
+          &::marker {
+            color: var(--color-primary);
+            font-weight: bold;
+          }
+        }
+      }
     }
-
-    .detail-section-content {
-      overflow: hidden;
-      transition: max-height var(--transition-speed) ease-out, opacity var(--transition-speed) ease-out, padding var(--transition-speed) ease-out;
-      opacity: 1;
-      padding: 0 var(--spacing-md) var(--spacing-md);
-    }
-
-    .detail-section.collapsed .detail-section-content {
-      max-height: 0 !important;
-      opacity: 0;
-      padding: 0;
-    }
-
-    .detail-view .detail-section.collapsed h3 {
-      margin-bottom: 0;
-      border-bottom: none;
-    }
-
-    .detail-view ul,
-    .detail-view ol {
-      padding-left: 0;
-      list-style: none;
-      margin: 0;
-    }
-
-    .detail-view ul[data-list-target="ingredients"] {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-xs);
-    }
-
-    .detail-view ul[data-list-target="ingredients"] li {
-      padding: var(--spacing-xs) 0;
-    }
-
-    .detail-view ol {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-sm);
-    }
-
-    .detail-view ol li {
-      list-style: decimal inside;
-      border-bottom: none;
-      padding: 0;
-    }
-    .detail-view ol li::marker { color: var(--color-primary); font-weight: bold; }
 
     .search-widget {
       background-color: var(--color-surface);
@@ -779,22 +747,31 @@
       border-radius: var(--radius-sm);
       transition: all var(--transition-speed) ease;
       border: 1px solid transparent;
-    }
 
-    .ingredient-item:hover {
-      border-color: var(--color-border);
-      transform: translateX(4px);
-    }
+      &:hover {
+        border-color: var(--color-border);
+        transform: translateX(4px);
 
-    .ingredient-item [data-action="filter-by-ingredient"] {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-sm);
-      transition: color var(--transition-speed) ease;
-    }
+        & .recipe-count-badge {
+          transform: scale(1.15);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
 
-    .ingredient-item [data-action="filter-by-ingredient"]:hover {
-      color: var(--color-primary);
+        & .ingredient-actions {
+          opacity: 1;
+        }
+      }
+
+      & [data-action="filter-by-ingredient"] {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        transition: color var(--transition-speed) ease;
+
+        &:hover {
+          color: var(--color-primary);
+        }
+      }
     }
 
     .recipe-count-badge {
@@ -812,11 +789,6 @@
       transition: all var(--transition-speed) ease;
     }
 
-    .ingredient-item:hover .recipe-count-badge {
-      transform: scale(1.15);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    }
-
     .ingredient-name {
       flex: 1;
       font-size: 0.95rem;
@@ -830,32 +802,28 @@
       transition: opacity var(--transition-speed) ease;
     }
 
-    .ingredient-item:hover .ingredient-actions {
-      opacity: 1;
-    }
-
     .ingredient-item-editing {
       padding: var(--spacing-md);
       background-color: var(--color-background);
       border: 2px solid var(--color-primary);
       border-radius: var(--radius);
       margin-bottom: var(--spacing-sm);
-    }
 
-    .ingredient-item-editing input {
-      width: 100%;
-      padding: var(--spacing-sm);
-      background-color: var(--color-background);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius);
-      color: var(--color-on-background);
-      font-family: inherit;
-      font-size: 1rem;
-    }
+      & input {
+        width: 100%;
+        padding: var(--spacing-sm);
+        background-color: var(--color-background);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius);
+        color: var(--color-on-background);
+        font-family: inherit;
+        font-size: 1rem;
 
-    .ingredient-item-editing input:focus {
-      outline: 2px solid var(--color-primary);
-      outline-offset: 2px;
+        &:focus {
+          outline: 2px solid var(--color-primary);
+          outline-offset: 2px;
+        }
+      }
     }
 
     .empty-state {
@@ -1013,10 +981,10 @@
       text-decoration: none;
       border-radius: var(--radius);
       font-weight: 600;
-    }
 
-    .skip-link:focus {
-      top: var(--spacing-sm);
+      &:focus {
+        top: var(--spacing-sm);
+      }
     }
 
     /* 7. RESPONSIVE DESIGN */
