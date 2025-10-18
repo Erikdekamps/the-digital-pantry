@@ -1274,17 +1274,46 @@
   <section>
     <div class="page-header">
       <h2>Ingredients</h2>
+      <button class="icon-button primary" data-action="show-add-ingredient-modal" title="Add new ingredient" aria-label="Add new ingredient">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/>
+        </svg>
+      </button>
     </div>
     
-    <form data-action="add-ingredient-inline" class="ingredient-add-form" style="margin-bottom: var(--spacing-md); padding: var(--spacing-md); background: var(--color-surface); border-radius: var(--radius); border: 1px solid var(--color-border);">
-      <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
-        <input type="text" name="name" placeholder="Add ingredient..." required style="flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background); color: var(--color-on-background);" data-filter-input>
-        <button type="submit" class="button primary small">Add</button>
-      </div>
-    </form>
+    <div style="margin-bottom: var(--spacing-lg);">
+      <input type="text" data-filter-input placeholder="Filter ingredients..." style="width: 100%; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-background); color: var(--color-on-background);">
+    </div>
     
     <div data-list-target="ingredients" style="display: flex; flex-direction: column; gap: 2px;"></div>
   </section>
+</template>
+
+<template id="add-ingredient-modal-template">
+  <div class="modal-overlay" data-action="close-modal">
+    <div class="modal-content" role="dialog" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Ingredient</h3>
+        <button class="icon-button" data-action="close-modal" aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form data-action="add-ingredient-from-modal">
+          <div class="form-group">
+            <label for="ingredient-name-input">Ingredient Name</label>
+            <input type="text" id="ingredient-name-input" name="name" placeholder="e.g. Tomatoes" required autofocus>
+          </div>
+          <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end; margin-top: var(--spacing-lg);">
+            <button type="button" class="button" data-action="close-modal">Cancel</button>
+            <button type="submit" class="button primary">Add Ingredient</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </template>
 
 <template id="ingredient-item-template">
@@ -1326,6 +1355,7 @@
   <section>
     <div class="page-header">
       <h2>Shopping List</h2>
+      <button class="button danger small" data-action="clear-shopping-list" title="Clear shopping list" aria-label="Clear shopping list">Clear All</button>
     </div>
     <ul style="list-style:none; padding:0" data-list-target="shopping-list"></ul>
   </section>
@@ -2098,6 +2128,7 @@
         'clear-shopping-list': () => this.clearShoppingList(),
         'toggle-theme': () => this.toggleTheme(),
         'close-modal': () => this.eventActions.closeModal(target, event),
+        'show-add-ingredient-modal': () => this.showAddIngredientModal(),
         'toggle-section': () => this.eventActions.toggleSection(target, event),
         'toggle-shopping-item': () => this.eventActions.toggleShoppingItem(target, name),
         'remove-search-filter': () => this.removeSearchFilter(parseInt(id)),
@@ -2130,7 +2161,8 @@
 
       const actions = {
         'save-recipe': () => this.saveRecipe(form),
-        'add-ingredient-inline': () => this.addInlineIngredient(form)
+        'add-ingredient-inline': () => this.addInlineIngredient(form),
+        'add-ingredient-from-modal': () => this.addIngredientFromModal(form)
       };
 
       if (actions[action]) {
@@ -2308,6 +2340,39 @@
       
       this.showToast('Ingredient added.');
       form.reset();
+    }
+
+    showAddIngredientModal() {
+      const modal = this.cloneTemplate('add-ingredient-modal-template');
+      document.body.appendChild(modal);
+      // Focus the input after a brief delay to ensure modal is rendered
+      setTimeout(() => {
+        const input = modal.querySelector('input[name="name"]');
+        if (input) input.focus();
+      }, 100);
+    }
+
+    addIngredientFromModal(form) {
+      const name = new FormData(form).get('name').trim();
+      if (!name) {
+        return;
+      }
+      if (this.state.ingredients.some(i => i.name.toLowerCase() === name.toLowerCase())) {
+        this.showToast('An ingredient with this name already exists.', 'error');
+        return;
+      }
+      const newIngredient = { id: Date.now(), name };
+      this.state.ingredients.push(newIngredient);
+      this.saveData();
+      
+      // Close modal
+      const modal = form.closest('.modal-overlay');
+      if (modal) modal.remove();
+      
+      // Re-render the ingredients list
+      this.navigateToView('ingredients');
+      
+      this.showToast('Ingredient added.');
     }
 
     deleteIngredient(id, target) {
