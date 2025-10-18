@@ -998,11 +998,22 @@
       }
     }
 
+    /* Nutrition field grid */
+    .nutrition-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--spacing-sm);
+    }
+
     /* 7. RESPONSIVE DESIGN */
     @media (max-width: 768px) {
       :root {
         --spacing-md: 0.75rem;
         --spacing-lg: 1rem;
+      }
+
+      .nutrition-grid {
+        grid-template-columns: 1fr;
       }
 
       .app-header {
@@ -1084,6 +1095,98 @@
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
       }
+    }
+
+    /* =====================================================
+       NUTRITION DISPLAY STYLES
+       ===================================================== */
+    
+    .nutrition-facts {
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: var(--spacing-md);
+      margin: var(--spacing-md) 0;
+    }
+
+    .nutrition-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: var(--spacing-sm);
+      padding: var(--spacing-md);
+      background: var(--color-surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--color-border);
+    }
+
+    .nutrition-item {
+      text-align: center;
+      padding: var(--spacing-sm);
+    }
+
+    .nutrition-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--color-primary);
+      display: block;
+    }
+
+    .nutrition-label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      margin-top: var(--spacing-xs);
+      display: block;
+    }
+
+    .nutrition-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--color-border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-top: var(--spacing-xs);
+    }
+
+    .nutrition-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-sm);
+      transition: width 0.3s ease;
+
+      &.protein {
+        background: var(--color-info);
+      }
+
+      &.carbs {
+        background: var(--color-success);
+      }
+
+      &.fat {
+        background: #ff9800;
+      }
+    }
+
+    .nutrition-detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: var(--spacing-xs) 0;
+      font-size: 0.9rem;
+    }
+
+    .nutrition-detail-label {
+      color: var(--color-text-secondary);
+    }
+
+    .nutrition-detail-value {
+      font-weight: 600;
+    }
+
+    .nutrition-missing {
+      color: var(--color-warning);
+      font-style: italic;
+      font-size: 0.9rem;
+      text-align: center;
+      padding: var(--spacing-md);
     }
   </style>
 </head>
@@ -1173,6 +1276,21 @@
     <div class="detail-section">
       <h3>Ingredients</h3>
       <ul data-list-target="ingredients"></ul>
+    </div>
+    <div class="detail-section" data-container="nutrition" hidden>
+      <h3>
+        <button type="button" class="toggle-button" data-action="toggle-section" data-section="nutrition" aria-expanded="true" aria-label="Toggle Nutrition Section">
+          <svg class="toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
+          </svg>
+        </button>
+        <span>Nutrition Facts</span>
+      </h3>
+      <div data-collapsible="nutrition">
+        <div data-nutrition-target="content">
+          <!-- Nutrition data will be inserted here -->
+        </div>
+      </div>
     </div>
     <div class="detail-section">
       <h3>
@@ -1315,9 +1433,86 @@
             <label for="ingredient-name-input">Ingredient Name</label>
             <input type="text" id="ingredient-name-input" name="name" placeholder="e.g. Tomatoes" required autofocus>
           </div>
+          
+          <fieldset style="margin-top: var(--spacing-md);">
+            <legend>Nutrition Information (per 100g) - Optional</legend>
+            <div class="nutrition-grid">
+              <div class="form-group">
+                <label for="ingredient-protein">Protein (g)</label>
+                <input type="number" id="ingredient-protein" name="protein" class="macro-input" placeholder="e.g. 0.9" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label for="ingredient-carbs">Carbs (g)</label>
+                <input type="number" id="ingredient-carbs" name="carbs" class="macro-input" placeholder="e.g. 3.9" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label for="ingredient-fat">Fat (g)</label>
+                <input type="number" id="ingredient-fat" name="fat" class="macro-input" placeholder="e.g. 0.2" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label for="ingredient-calories">Calories (kcal) <span style="font-size: 0.875rem; color: var(--color-text-secondary);">Auto-calculated</span></label>
+                <input type="number" id="ingredient-calories" name="calories" placeholder="Auto" min="0" step="1" tabindex="-1" style="background: var(--color-surface); cursor: not-allowed; pointer-events: none;">
+              </div>
+            </div>
+          </fieldset>
+          
           <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end; margin-top: var(--spacing-lg);">
             <button type="button" class="button" data-action="close-modal">Cancel</button>
             <button type="submit" class="button primary">Add Ingredient</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="edit-ingredient-modal-template">
+  <div class="modal-overlay" data-action="close-modal">
+    <div class="modal-content" role="dialog" aria-labelledby="edit-modal-title">
+      <div class="modal-header">
+        <h3 id="edit-modal-title">Edit Ingredient</h3>
+        <button class="icon-button" data-action="close-modal" aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form data-action="update-ingredient-from-modal">
+          <input type="hidden" name="ingredientId">
+          
+          <div class="form-group">
+            <label for="edit-ingredient-name">Ingredient Name</label>
+            <input type="text" id="edit-ingredient-name" name="name" required autofocus>
+          </div>
+          
+          <fieldset style="margin-top: var(--spacing-md);">
+            <legend>Nutrition Information (per 100g) - Optional</legend>
+            <div class="nutrition-grid">
+              <div class="form-group">
+                <label for="edit-ingredient-protein">Protein (g)</label>
+                <input type="number" id="edit-ingredient-protein" name="protein" class="macro-input" placeholder="e.g. 0.9" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label for="edit-ingredient-carbs">Carbs (g)</label>
+                <input type="number" id="edit-ingredient-carbs" name="carbs" class="macro-input" placeholder="e.g. 3.9" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label for="edit-ingredient-fat">Fat (g)</label>
+                <input type="number" id="edit-ingredient-fat" name="fat" class="macro-input" placeholder="e.g. 0.2" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label for="edit-ingredient-calories">Calories (kcal) <span style="font-size: 0.875rem; color: var(--color-text-secondary);">Auto-calculated</span></label>
+                <input type="number" id="edit-ingredient-calories" name="calories" placeholder="Auto" min="0" step="1" tabindex="-1" style="background: var(--color-surface); cursor: not-allowed; pointer-events: none;">
+              </div>
+            </div>
+          </fieldset>
+          
+          <div style="display: flex; gap: var(--spacing-sm); justify-content: space-between; margin-top: var(--spacing-lg);">
+            <button type="button" class="button" data-action="delete-ingredient-from-modal" style="background: var(--color-danger); color: white;">
+              Delete Ingredient
+            </button>
+            <button type="submit" class="button primary">Save Changes</button>
           </div>
         </form>
       </div>
@@ -1482,7 +1677,8 @@
       COLLAPSED_SECTIONS: 'collapsedSections',
       LAST_VIEWED_RECIPE: 'lastViewedRecipe',
       FILTER_SETTINGS: 'filterSettings',
-      FILTER_PANEL_OPEN: 'filterPanelOpen'
+      FILTER_PANEL_OPEN: 'filterPanelOpen',
+      INGREDIENT_FILTER: 'ingredientFilter'
     };
 
     static save(key, data) {
@@ -1607,6 +1803,7 @@
       const view = this.app.cloneTemplate('recipe-detail-template');
       this._populateRecipeInfo(view, recipe);
       this._renderIngredientsList(view, recipe);
+      this._renderNutritionFacts(view, recipe);
       this._renderInstructionsList(view, recipe);
 
       this.app.root.appendChild(view);
@@ -1745,6 +1942,50 @@
         category: '',
         steps: instructions
       }];
+    }
+
+    _renderNutritionFacts(view, recipe) {
+      const nutritionContainer = view.querySelector('[data-container="nutrition"]');
+      const nutritionContent = view.querySelector('[data-nutrition-target="content"]');
+      
+      // Calculate nutrition
+      const totalNutrition = this.app.nutritionCalculator.calculateRecipeNutrition(recipe);
+      
+      // If no nutrition data available, hide the section
+      if (!totalNutrition.hasAllData) {
+        nutritionContainer.hidden = true;
+        return;
+      }
+      
+      // Show the section
+      nutritionContainer.hidden = false;
+      
+      // Calculate per serving
+      const perServing = this.app.nutritionCalculator.calculatePerServing(totalNutrition, recipe.servings);
+      
+      // Create minimal nutrition display (matching ingredients list style)
+      const nutritionHTML = `
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          <li style="padding: var(--spacing-xs) 0; display: flex; justify-content: space-between; align-items: center;">
+            <strong>Per Serving (1/${recipe.servings})</strong>
+            <span>${perServing.calories} cal</span>
+          </li>
+          <li style="padding: var(--spacing-xs) 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--color-border);">
+            <span>Protein</span>
+            <span><strong>${perServing.protein}g</strong></span>
+          </li>
+          <li style="padding: var(--spacing-xs) 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--color-border);">
+            <span>Carbs</span>
+            <span><strong>${perServing.carbs}g</strong></span>
+          </li>
+          <li style="padding: var(--spacing-xs) 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--color-border);">
+            <span>Fat</span>
+            <span><strong>${perServing.fat}g</strong></span>
+          </li>
+        </ul>
+      `;
+      
+      nutritionContent.innerHTML = nutritionHTML;
     }
 
     _setupDetailButtons(recipeName) {
@@ -2000,6 +2241,180 @@
   }
 
   // =====================================================
+  // NUTRITION CALCULATOR - Calculates recipe macros
+  // =====================================================
+  class NutritionCalculator {
+    constructor(app) {
+      this.app = app;
+    }
+
+    /**
+     * Calculate nutrition for a recipe based on its ingredients
+     * @param {Object} recipe - The recipe object
+     * @returns {Object|null} - Nutrition data or null if incomplete
+     */
+    calculateRecipeNutrition(recipe) {
+      const totalNutrition = {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        hasAllData: true
+      };
+
+      for (const recipeIngredient of recipe.ingredients) {
+        const ingredient = this.app.state.ingredients.find(i => i.name === recipeIngredient.name);
+        
+        if (!ingredient || !ingredient.nutrition) {
+          totalNutrition.hasAllData = false;
+          continue;
+        }
+
+        // Parse amount (handle fractions like "1/2")
+        const grams = this._convertToGrams(recipeIngredient.amount, recipeIngredient.measurement, ingredient);
+        
+        if (grams === null) {
+          totalNutrition.hasAllData = false;
+          continue;
+        }
+
+        // Calculate nutrition based on grams (nutrition data is per 100g)
+        const factor = grams / 100;
+        totalNutrition.calories += ingredient.nutrition.calories * factor;
+        totalNutrition.protein += ingredient.nutrition.protein * factor;
+        totalNutrition.carbs += ingredient.nutrition.carbs * factor;
+        totalNutrition.fat += ingredient.nutrition.fat * factor;
+      }
+
+      // Round values
+      totalNutrition.calories = Math.round(totalNutrition.calories);
+      totalNutrition.protein = Math.round(totalNutrition.protein * 10) / 10;
+      totalNutrition.carbs = Math.round(totalNutrition.carbs * 10) / 10;
+      totalNutrition.fat = Math.round(totalNutrition.fat * 10) / 10;
+
+      return totalNutrition;
+    }
+
+    /**
+     * Calculate per-serving nutrition
+     * @param {Object} totalNutrition - Total recipe nutrition
+     * @param {number} servings - Number of servings
+     * @returns {Object} - Per-serving nutrition
+     */
+    calculatePerServing(totalNutrition, servings) {
+      return {
+        calories: Math.round(totalNutrition.calories / servings),
+        protein: Math.round((totalNutrition.protein / servings) * 10) / 10,
+        carbs: Math.round((totalNutrition.carbs / servings) * 10) / 10,
+        fat: Math.round((totalNutrition.fat / servings) * 10) / 10
+      };
+    }
+
+    /**
+     * Convert measurement to grams
+     * Basic implementation - can be expanded with more conversions
+     * @private
+     */
+    _convertToGrams(amount, measurement, ingredient) {
+      // Parse amount (handle fractions)
+      const parsedAmount = this._parseAmount(amount);
+      if (parsedAmount === null) return null;
+
+      // If already in grams, return as-is
+      if (measurement === 'g' || measurement === 'grams') {
+        return parsedAmount;
+      }
+
+      // Simple conversions for common measurements
+      // This is a basic implementation - a full version would have extensive conversion tables
+      const conversions = {
+        'kg': 1000,
+        'kilogram': 1000,
+        'oz': 28.35,
+        'ounce': 28.35,
+        'lb': 453.59,
+        'pound': 453.59,
+        // Liquids (approximate for water-like substances)
+        'ml': 1,
+        'milliliter': 1,
+        'l': 1000,
+        'liter': 1000,
+        'cup': 240,
+        'tbsp': 15,
+        'tablespoon': 15,
+        'tsp': 5,
+        'teaspoon': 5
+      };
+
+      const normalizedMeasurement = measurement.toLowerCase().trim();
+      
+      if (conversions[normalizedMeasurement]) {
+        return parsedAmount * conversions[normalizedMeasurement];
+      }
+
+      // If no conversion found, assume grams
+      return parsedAmount;
+    }
+
+    /**
+     * Parse amount string (handles fractions like "1/2", "2 1/2", etc.)
+     * @private
+     */
+    _parseAmount(amountStr) {
+      if (!amountStr) return null;
+      
+      const str = amountStr.toString().trim();
+      
+      // Handle fractions like "1/2"
+      if (str.includes('/')) {
+        const parts = str.split(/\s+/);
+        let total = 0;
+        
+        for (const part of parts) {
+          if (part.includes('/')) {
+            const [num, den] = part.split('/').map(Number);
+            if (isNaN(num) || isNaN(den) || den === 0) return null;
+            total += num / den;
+          } else {
+            const num = parseFloat(part);
+            if (isNaN(num)) return null;
+            total += num;
+          }
+        }
+        
+        return total;
+      }
+      
+      // Regular number
+      const num = parseFloat(str);
+      return isNaN(num) ? null : num;
+    }
+
+    /**
+     * Calculate macro percentages (of total calories)
+     * @param {Object} nutrition - Nutrition data
+     * @returns {Object} - Percentage breakdown
+     */
+    calculateMacroPercentages(nutrition) {
+      // Protein: 4 cal/g, Carbs: 4 cal/g, Fat: 9 cal/g
+      const proteinCal = nutrition.protein * 4;
+      const carbsCal = nutrition.carbs * 4;
+      const fatCal = nutrition.fat * 9;
+      const total = proteinCal + carbsCal + fatCal;
+
+      if (total === 0) {
+        return { protein: 0, carbs: 0, fat: 0 };
+      }
+
+      return {
+        protein: Math.round((proteinCal / total) * 100),
+        carbs: Math.round((carbsCal / total) * 100),
+        fat: Math.round((fatCal / total) * 100)
+      };
+    }
+  }
+
+  // =====================================================
   // EVENT ACTIONS CLASS
   // =====================================================
   class EventActions {
@@ -2096,6 +2511,7 @@
       this.themeManager = new ThemeManager(this);
       this.recipeRenderer = new RecipeRenderer(this);
       this.shoppingListRenderer = new ShoppingListRenderer(this);
+      this.nutritionCalculator = new NutritionCalculator(this);
       this.eventActions = new EventActions(this);
     }
 
@@ -2119,14 +2535,31 @@
       
       // Load each data type separately with granular keys
       const recipes = StorageManager.load(StorageManager.KEYS.RECIPES, defaultData.recipes);
-      const ingredients = StorageManager.load(StorageManager.KEYS.INGREDIENTS, defaultData.ingredients);
+      let ingredients = StorageManager.load(StorageManager.KEYS.INGREDIENTS, defaultData.ingredients);
       const shoppingList = StorageManager.load(StorageManager.KEYS.SHOPPING_LIST, defaultData.shoppingList);
+      
+      // Migration: Add IDs to ingredients that don't have them
+      let needsSave = false;
+      let maxId = Math.max(0, ...ingredients.filter(i => i.id).map(i => i.id));
+      
+      ingredients = ingredients.map(ingredient => {
+        if (!ingredient.id) {
+          needsSave = true;
+          return { ...ingredient, id: ++maxId };
+        }
+        return ingredient;
+      });
       
       this.state = {
         recipes,
         ingredients,
         shoppingList
       };
+      
+      // Save if we added IDs
+      if (needsSave) {
+        this.saveData();
+      }
     }
 
     loadViewState() {
@@ -2291,6 +2724,8 @@
         },
         'delete-recipe': () => this.deleteRecipe(name),
         'delete-ingredient': () => this.deleteIngredient(parseInt(id), target),
+        'delete-ingredient-from-modal': () => this.deleteIngredientFromModal(parseInt(id)),
+        'edit-ingredient': () => this.showEditIngredientModal(parseInt(id)),
         'add-to-shopping-list': () => this.addToShoppingList(target),
         'remove-from-shopping-list': () => this.removeFromShoppingList(name, target),
         'clear-shopping-list': () => this.clearShoppingList(),
@@ -2332,7 +2767,8 @@
       const actions = {
         'save-recipe': () => this.saveRecipe(form),
         'add-ingredient-inline': () => this.addInlineIngredient(form),
-        'add-ingredient-from-modal': () => this.addIngredientFromModal(form)
+        'add-ingredient-from-modal': () => this.addIngredientFromModal(form),
+        'update-ingredient-from-modal': () => this.updateIngredientFromModal(form)
       };
 
       if (actions[action]) {
@@ -2383,6 +2819,12 @@
       const container = view.querySelector('[data-list-target="ingredients"]');
       const filterInput = view.querySelector('[data-filter-input]');
       
+      // Load saved filter value
+      const savedFilter = StorageManager.load(StorageManager.KEYS.INGREDIENT_FILTER, '');
+      if (filterInput) {
+        filterInput.value = savedFilter;
+      }
+      
       const renderFilteredList = (filterText = '') => {
         container.innerHTML = '';
         const lowerFilter = filterText.toLowerCase().trim();
@@ -2406,13 +2848,15 @@
         }
       };
       
-      // Initial render
-      renderFilteredList();
+      // Initial render with saved filter
+      renderFilteredList(savedFilter);
       
-      // Add filter listener
+      // Add filter listener with localStorage save
       if (filterInput) {
         filterInput.addEventListener('input', (e) => {
-          renderFilteredList(e.target.value);
+          const filterValue = e.target.value;
+          renderFilteredList(filterValue);
+          StorageManager.save(StorageManager.KEYS.INGREDIENT_FILTER, filterValue);
         });
       }
       
@@ -2513,9 +2957,47 @@
       form.reset();
     }
 
+    _setupCalorieCalculation(modal) {
+      const proteinInput = modal.querySelector('[name="protein"]');
+      const carbsInput = modal.querySelector('[name="carbs"]');
+      const fatInput = modal.querySelector('[name="fat"]');
+      const caloriesInput = modal.querySelector('[name="calories"]');
+      
+      const calculateCalories = () => {
+        const protein = parseFloat(proteinInput.value) || 0;
+        const carbs = parseFloat(carbsInput.value) || 0;
+        const fat = parseFloat(fatInput.value) || 0;
+        
+        // Calculate calories: protein and carbs = 4 cal/g, fat = 9 cal/g
+        const totalCalories = (protein * 4) + (carbs * 4) + (fat * 9);
+        
+        // Only show calculated value if at least one macro is entered
+        if (protein > 0 || carbs > 0 || fat > 0) {
+          caloriesInput.value = Math.round(totalCalories);
+        } else {
+          caloriesInput.value = '';
+        }
+      };
+      
+      // Add event listeners to macro inputs
+      proteinInput.addEventListener('input', calculateCalories);
+      carbsInput.addEventListener('input', calculateCalories);
+      fatInput.addEventListener('input', calculateCalories);
+      
+      // Calculate initially if values are already present (for edit modal)
+      calculateCalories();
+    }
+
     showAddIngredientModal() {
-      const modal = this.cloneTemplate('add-ingredient-modal-template');
-      document.body.appendChild(modal);
+      const modalFragment = this.cloneTemplate('add-ingredient-modal-template');
+      document.body.appendChild(modalFragment);
+      
+      // Query the modal from the DOM after it's been appended
+      const modal = document.body.querySelector('.modal-overlay:last-child');
+      
+      // Setup auto-calculation for calories
+      this._setupCalorieCalculation(modal);
+      
       // Focus the input after a brief delay to ensure modal is rendered
       setTimeout(() => {
         const input = modal.querySelector('input[name="name"]');
@@ -2524,15 +3006,39 @@
     }
 
     addIngredientFromModal(form) {
-      const name = new FormData(form).get('name').trim();
+      const formData = new FormData(form);
+      const name = formData.get('name').trim();
+      
       if (!name) {
         return;
       }
+      
       if (this.state.ingredients.some(i => i.name.toLowerCase() === name.toLowerCase())) {
         this.showToast('An ingredient with this name already exists.', 'error');
         return;
       }
-      const newIngredient = { id: Date.now(), name };
+      
+      // Build ingredient object
+      const newIngredient = { 
+        id: Date.now(), 
+        name 
+      };
+      
+      // Add nutrition data if provided (protein, carbs, and fat must all have values)
+      const protein = formData.get('protein');
+      const carbs = formData.get('carbs');
+      const fat = formData.get('fat');
+      const calories = formData.get('calories');
+      
+      if (protein && carbs && fat) {
+        newIngredient.nutrition = {
+          calories: parseFloat(calories) || 0,
+          protein: parseFloat(protein),
+          carbs: parseFloat(carbs),
+          fat: parseFloat(fat)
+        };
+      }
+      
       this.state.ingredients.push(newIngredient);
       this.saveData();
       
@@ -2544,6 +3050,117 @@
       this.navigateToView('ingredients');
       
       this.showToast('Ingredient added.');
+    }
+
+    showEditIngredientModal(ingredientId) {
+      const ingredient = this.state.ingredients.find(i => i.id === ingredientId);
+      if (!ingredient) {
+        return;
+      }
+      
+      const modalFragment = this.cloneTemplate('edit-ingredient-modal-template');
+      document.body.appendChild(modalFragment);
+      
+      // Query the modal from the DOM after it's been appended
+      const modal = document.body.querySelector('.modal-overlay:last-child');
+      const form = modal.querySelector('form');
+      
+      // Populate form with current values
+      form.querySelector('[name="ingredientId"]').value = ingredient.id;
+      form.querySelector('[name="name"]').value = ingredient.name;
+      
+      // Set the ingredient ID on the delete button
+      const deleteBtn = modal.querySelector('[data-action="delete-ingredient-from-modal"]');
+      if (deleteBtn) {
+        deleteBtn.dataset.id = ingredient.id;
+      }
+      
+      if (ingredient.nutrition) {
+        form.querySelector('[name="protein"]').value = ingredient.nutrition.protein || '';
+        form.querySelector('[name="carbs"]').value = ingredient.nutrition.carbs || '';
+        form.querySelector('[name="fat"]').value = ingredient.nutrition.fat || '';
+        form.querySelector('[name="calories"]').value = ingredient.nutrition.calories || '';
+      }
+      
+      // Setup auto-calculation for calories
+      this._setupCalorieCalculation(modal);
+    }
+
+    updateIngredientFromModal(form) {
+      const formData = new FormData(form);
+      const ingredientId = parseInt(formData.get('ingredientId'));
+      const name = formData.get('name').trim();
+      
+      if (!name) {
+        return;
+      }
+      
+      const ingredient = this.state.ingredients.find(i => i.id === ingredientId);
+      if (!ingredient) {
+        this.showToast('Ingredient not found.', 'error');
+        return;
+      }
+      
+      // Check if name conflicts with another ingredient
+      const existingWithName = this.state.ingredients.find(i => 
+        i.id !== ingredientId && i.name.toLowerCase() === name.toLowerCase()
+      );
+      
+      if (existingWithName) {
+        this.showToast('An ingredient with this name already exists.', 'error');
+        return;
+      }
+      
+      // Update ingredient
+      const oldName = ingredient.name;
+      ingredient.name = name;
+      
+      // Update nutrition data if provided (protein, carbs, and fat must all have values)
+      const protein = formData.get('protein');
+      const carbs = formData.get('carbs');
+      const fat = formData.get('fat');
+      const calories = formData.get('calories');
+      
+      if (protein && carbs && fat) {
+        ingredient.nutrition = {
+          calories: parseFloat(calories) || 0,
+          protein: parseFloat(protein),
+          carbs: parseFloat(carbs),
+          fat: parseFloat(fat)
+        };
+      } else {
+        // Remove nutrition if any field is empty
+        delete ingredient.nutrition;
+      }
+      
+      // Update recipes that use this ingredient
+      if (oldName !== name) {
+        this.state.recipes.forEach(recipe => {
+          recipe.ingredients.forEach(ing => {
+            if (ing.name === oldName) {
+              ing.name = name;
+            }
+          });
+        });
+        
+        // Update shopping list
+        this.state.shoppingList.forEach(item => {
+          if (item.ingredientName === oldName) {
+            item.ingredientName = name;
+          }
+        });
+      }
+      
+      this.saveData();
+      
+      // Close modal
+      const modal = form.closest('.modal-overlay');
+      if (modal) modal.remove();
+      
+      // Re-render the ingredients list
+      this.navigateToView('ingredients');
+      
+      this.showToast('Ingredient updated.');
     }
 
     showDataManagementModal() {
@@ -2659,6 +3276,35 @@
       }
       this.state.ingredients = this.state.ingredients.filter(i => i.id !== id);
       this.saveData();
+      this.navigateToView('ingredients');
+      this.showToast('Ingredient deleted.');
+    }
+
+    deleteIngredientFromModal(id) {
+      const ingredient = this.state.ingredients.find(i => i.id === id);
+      if (!ingredient) return;
+      
+      const isUsed = this.state.recipes.some(recipe => 
+        recipe.ingredients.some(ing => ing.name === ingredient.name)
+      );
+      
+      if (isUsed) {
+        this.showToast('Cannot delete: Ingredient is used in a recipe.', 'error');
+        return;
+      }
+      
+      if (!confirm(`Are you sure you want to delete "${ingredient.name}"?`)) {
+        return;
+      }
+      
+      this.state.ingredients = this.state.ingredients.filter(i => i.id !== id);
+      this.saveData();
+      
+      // Close the modal
+      const modal = document.querySelector('.modal-overlay');
+      if (modal) modal.remove();
+      
+      // Navigate to ingredients list
       this.navigateToView('ingredients');
       this.showToast('Ingredient deleted.');
     }
@@ -2998,7 +3644,9 @@
       itemEl.dataset.id = ing.id;
       
       const nameEl = itemEl.querySelector('[data-text="name"]');
-      nameEl.textContent = ing.name;
+      
+      // Simple name display without nutrition info
+      nameEl.innerHTML = `<strong>${ing.name}</strong>`;
       
       // Count recipes that use this ingredient
       const recipeCount = this.state.recipes.filter(r => 
@@ -3033,9 +3681,26 @@
         clickableArea.appendChild(countBadge);
       }
 
-      const deleteBtn = itemEl.querySelector('[data-action="delete-ingredient"]');
-      deleteBtn.dataset.id = ing.id;
-      deleteBtn.setAttribute('aria-label', `Delete ${ing.name}`);
+      // Add edit button and remove delete button
+      const actionsContainer = itemEl.querySelector('.ingredient-actions');
+      const deleteBtn = actionsContainer.querySelector('[data-action="delete-ingredient"]');
+      if (deleteBtn) {
+        deleteBtn.remove();
+      }
+      
+      const editBtn = document.createElement('button');
+      editBtn.className = 'icon-button';
+      editBtn.dataset.action = 'edit-ingredient';
+      editBtn.dataset.id = ing.id;
+      editBtn.title = 'Edit ingredient';
+      editBtn.setAttribute('aria-label', `Edit ${ing.name}`);
+      editBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+        </svg>
+      `;
+      
+      actionsContainer.appendChild(editBtn);
 
       return itemEl;
     }
@@ -3239,9 +3904,13 @@
         this.activeFilters.forEach(ingredientName => {
           const badge = document.createElement('span');
           badge.className = 'filter-badge';
+          badge.dataset.action = 'remove-search-filter';
+          badge.dataset.name = ingredientName;
+          badge.title = `Remove ${ingredientName} filter`;
+          badge.setAttribute('aria-label', `Remove ${ingredientName} filter`);
           badge.innerHTML = `
             ${ingredientName}
-            <button data-action="remove-search-filter" data-name="${ingredientName}" title="Remove filter" aria-label="Remove ${ingredientName} filter">×</button>
+            <button data-action="remove-search-filter" data-name="${ingredientName}" title="Remove filter" aria-label="Remove ${ingredientName} filter" style="pointer-events: none;">×</button>
           `;
           badgeContainer.appendChild(badge);
         });
@@ -3305,82 +3974,82 @@
     getInitialData() {
       return {
         ingredients: [
-          // Pantry Staples - Basics
-          { name: 'All-Purpose Flour' },
-          { name: 'Granulated Sugar' },
-          { name: 'Brown Sugar' },
-          { name: 'Salt' },
-          { name: 'Black Pepper' },
-          { name: 'Baking Soda' },
-          { name: 'Baking Powder' },
-          { name: 'White Rice' },
-          { name: 'Spaghetti' },
-          { name: 'Penne Pasta' },
-          { name: 'Bread' },
-          { name: 'Potatoes' },
+          // Pantry Staples - Basics (nutrition per 100g)
+          { id: 1, name: 'All-Purpose Flour', nutrition: { calories: 364, protein: 10, carbs: 76, fat: 1 } },
+          { id: 2, name: 'Granulated Sugar', nutrition: { calories: 387, protein: 0, carbs: 100, fat: 0 } },
+          { id: 3, name: 'Brown Sugar', nutrition: { calories: 380, protein: 0, carbs: 98, fat: 0 } },
+          { id: 4, name: 'Salt', nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 } },
+          { id: 5, name: 'Black Pepper', nutrition: { calories: 251, protein: 10, carbs: 64, fat: 3 } },
+          { id: 6, name: 'Baking Soda', nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 } },
+          { id: 7, name: 'Baking Powder', nutrition: { calories: 53, protein: 0, carbs: 28, fat: 0 } },
+          { id: 8, name: 'White Rice', nutrition: { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 } },
+          { id: 9, name: 'Spaghetti', nutrition: { calories: 371, protein: 13, carbs: 74, fat: 1.5 } },
+          { id: 10, name: 'Penne Pasta', nutrition: { calories: 371, protein: 13, carbs: 74, fat: 1.5 } },
+          { id: 11, name: 'Bread', nutrition: { calories: 265, protein: 9, carbs: 49, fat: 3.2 } },
+          { id: 12, name: 'Potatoes', nutrition: { calories: 77, protein: 2, carbs: 17, fat: 0.1 } },
           
           // Oils and Condiments
-          { name: 'Olive Oil' },
-          { name: 'Vegetable Oil' },
-          { name: 'Soy Sauce' },
-          { name: 'Ketchup' },
-          { name: 'Mustard' },
-          { name: 'Mayonnaise' },
-          { name: 'Honey' },
-          { name: 'Hot Sauce' },
+          { id: 13, name: 'Olive Oil', nutrition: { calories: 884, protein: 0, carbs: 0, fat: 100 } },
+          { id: 14, name: 'Vegetable Oil', nutrition: { calories: 884, protein: 0, carbs: 0, fat: 100 } },
+          { id: 15, name: 'Soy Sauce', nutrition: { calories: 53, protein: 5, carbs: 5, fat: 0 } },
+          { id: 16, name: 'Ketchup', nutrition: { calories: 101, protein: 1, carbs: 25, fat: 0 } },
+          { id: 17, name: 'Mustard', nutrition: { calories: 60, protein: 3.7, carbs: 5, fat: 3.3 } },
+          { id: 18, name: 'Mayonnaise', nutrition: { calories: 680, protein: 1, carbs: 1, fat: 75 } },
+          { id: 19, name: 'Honey', nutrition: { calories: 304, protein: 0.3, carbs: 82, fat: 0 } },
+          { id: 20, name: 'Hot Sauce', nutrition: { calories: 12, protein: 0.5, carbs: 2, fat: 0.2 } },
           
           // Herbs and Spices
-          { name: 'Garlic Powder' },
-          { name: 'Onion Powder' },
-          { name: 'Cumin' },
-          { name: 'Paprika' },
-          { name: 'Chili Powder' },
-          { name: 'Dried Oregano' },
-          { name: 'Dried Basil' },
-          { name: 'Cinnamon' },
-          { name: 'Red Pepper Flakes' },
+          { id: 21, name: 'Garlic Powder', nutrition: { calories: 331, protein: 17, carbs: 72, fat: 0.7 } },
+          { id: 22, name: 'Onion Powder', nutrition: { calories: 341, protein: 9, carbs: 79, fat: 1 } },
+          { id: 23, name: 'Cumin', nutrition: { calories: 375, protein: 18, carbs: 44, fat: 22 } },
+          { id: 24, name: 'Paprika', nutrition: { calories: 282, protein: 14, carbs: 54, fat: 13 } },
+          { id: 25, name: 'Chili Powder', nutrition: { calories: 282, protein: 13, carbs: 50, fat: 14 } },
+          { id: 26, name: 'Dried Oregano', nutrition: { calories: 265, protein: 9, carbs: 69, fat: 4 } },
+          { id: 27, name: 'Dried Basil', nutrition: { calories: 233, protein: 23, carbs: 48, fat: 4 } },
+          { id: 28, name: 'Cinnamon', nutrition: { calories: 247, protein: 4, carbs: 81, fat: 1 } },
+          { id: 29, name: 'Red Pepper Flakes', nutrition: { calories: 318, protein: 12, carbs: 57, fat: 17 } },
           
           // Fresh Basics
-          { name: 'Garlic' },
-          { name: 'Onion' },
-          { name: 'Fresh Parsley' },
-          { name: 'Fresh Basil' },
-          { name: 'Lemon' },
+          { id: 30, name: 'Garlic', nutrition: { calories: 149, protein: 6, carbs: 33, fat: 0.5 } },
+          { id: 31, name: 'Onion', nutrition: { calories: 40, protein: 1.1, carbs: 9, fat: 0.1 } },
+          { id: 32, name: 'Fresh Parsley', nutrition: { calories: 36, protein: 3, carbs: 6, fat: 0.8 } },
+          { id: 33, name: 'Fresh Basil', nutrition: { calories: 23, protein: 3, carbs: 3, fat: 0.6 } },
+          { id: 34, name: 'Lemon', nutrition: { calories: 29, protein: 1.1, carbs: 9, fat: 0.3 } },
           
           // Canned and Jarred Goods
-          { name: 'Diced Tomatoes (canned)' },
-          { name: 'Crushed Tomatoes (canned)' },
-          { name: 'Tomato Paste' },
-          { name: 'Chicken Broth' },
-          { name: 'Vegetable Broth' },
-          { name: 'Black Beans (canned)' },
-          { name: 'Chickpeas (canned)' },
+          { id: 35, name: 'Diced Tomatoes (canned)', nutrition: { calories: 32, protein: 1.6, carbs: 7, fat: 0.2 } },
+          { id: 36, name: 'Crushed Tomatoes (canned)', nutrition: { calories: 32, protein: 1.6, carbs: 7, fat: 0.2 } },
+          { id: 37, name: 'Tomato Paste', nutrition: { calories: 82, protein: 4, carbs: 19, fat: 0.5 } },
+          { id: 38, name: 'Chicken Broth', nutrition: { calories: 4, protein: 0.5, carbs: 0.4, fat: 0.1 } },
+          { id: 39, name: 'Vegetable Broth', nutrition: { calories: 4, protein: 0.4, carbs: 0.5, fat: 0 } },
+          { id: 40, name: 'Black Beans (canned)', nutrition: { calories: 91, protein: 6, carbs: 16, fat: 0.3 } },
+          { id: 41, name: 'Chickpeas (canned)', nutrition: { calories: 164, protein: 9, carbs: 27, fat: 3 } },
           
           // Dairy and Refrigerated
-          { name: 'Milk' },
-          { name: 'Butter' },
-          { name: 'Eggs' },
-          { name: 'Cheddar Cheese' },
-          { name: 'Mozzarella Cheese' },
-          { name: 'Parmesan Cheese' },
-          { name: 'Sour Cream' },
-          { name: 'Heavy Cream' },
+          { id: 42, name: 'Milk', nutrition: { calories: 42, protein: 3.4, carbs: 5, fat: 1 } },
+          { id: 43, name: 'Butter', nutrition: { calories: 717, protein: 0.9, carbs: 0.1, fat: 81 } },
+          { id: 44, name: 'Eggs', nutrition: { calories: 143, protein: 13, carbs: 1, fat: 10 } },
+          { id: 45, name: 'Cheddar Cheese', nutrition: { calories: 403, protein: 25, carbs: 1.3, fat: 33 } },
+          { id: 46, name: 'Mozzarella Cheese', nutrition: { calories: 280, protein: 28, carbs: 3, fat: 17 } },
+          { id: 47, name: 'Parmesan Cheese', nutrition: { calories: 431, protein: 38, carbs: 4, fat: 29 } },
+          { id: 48, name: 'Sour Cream', nutrition: { calories: 198, protein: 2.4, carbs: 4.6, fat: 19 } },
+          { id: 49, name: 'Heavy Cream', nutrition: { calories: 340, protein: 2.1, carbs: 2.8, fat: 36 } },
           
           // Proteins
-          { name: 'Chicken Breast' },
-          { name: 'Ground Beef' },
-          { name: 'Bacon' },
-          { name: 'Salmon Fillet' },
-          { name: 'Shrimp' },
+          { id: 50, name: 'Chicken Breast', nutrition: { calories: 165, protein: 31, carbs: 0, fat: 3.6 } },
+          { id: 51, name: 'Ground Beef', nutrition: { calories: 250, protein: 26, carbs: 0, fat: 15 } },
+          { id: 52, name: 'Bacon', nutrition: { calories: 541, protein: 37, carbs: 1.4, fat: 42 } },
+          { id: 53, name: 'Salmon Fillet', nutrition: { calories: 208, protein: 20, carbs: 0, fat: 13 } },
+          { id: 54, name: 'Shrimp', nutrition: { calories: 99, protein: 24, carbs: 0.2, fat: 0.3 } },
           
           // Vegetables
-          { name: 'Tomato' },
-          { name: 'Bell Pepper' },
-          { name: 'Carrot' },
-          { name: 'Celery' },
-          { name: 'Spinach' },
-          { name: 'Broccoli' },
-          { name: 'Mushrooms' }
+          { id: 55, name: 'Tomato', nutrition: { calories: 18, protein: 0.9, carbs: 3.9, fat: 0.2 } },
+          { id: 56, name: 'Bell Pepper', nutrition: { calories: 31, protein: 1, carbs: 6, fat: 0.3 } },
+          { id: 57, name: 'Carrot', nutrition: { calories: 41, protein: 0.9, carbs: 10, fat: 0.2 } },
+          { id: 58, name: 'Celery', nutrition: { calories: 14, protein: 0.7, carbs: 3, fat: 0.2 } },
+          { id: 59, name: 'Spinach', nutrition: { calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4 } },
+          { id: 60, name: 'Broccoli', nutrition: { calories: 34, protein: 2.8, carbs: 7, fat: 0.4 } },
+          { id: 61, name: 'Mushrooms', nutrition: { calories: 22, protein: 3.1, carbs: 3.3, fat: 0.3 } }
         ],
         recipes: [
           {
