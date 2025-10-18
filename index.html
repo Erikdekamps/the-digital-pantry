@@ -751,6 +751,36 @@
       border-radius: var(--radius-sm);
     }
 
+    .ingredient-item [data-action="filter-by-ingredient"] {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      transition: color var(--transition-speed) ease;
+    }
+
+    .ingredient-item [data-action="filter-by-ingredient"]:hover {
+      color: var(--color-primary);
+    }
+
+    .recipe-count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      padding: 0 var(--spacing-xs);
+      background-color: var(--color-primary);
+      color: var(--color-on-primary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 12px;
+      transition: transform var(--transition-speed) ease;
+    }
+
+    .ingredient-item:hover .recipe-count-badge {
+      transform: scale(1.1);
+    }
+
     .ingredient-name {
       flex: 1;
       font-size: 1rem;
@@ -1249,6 +1279,9 @@
         </div>
       </div>
     </form>
+    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-bottom: var(--spacing-md);">
+      💡 Tip: Click on an ingredient to filter recipes that use it. Numbers show recipe count.
+    </p>
     <div class="ingredients-accordion" data-list-target="ingredients"></div>
   </section>
 </template>
@@ -1735,7 +1768,8 @@
         collapsedSections: {},
         theme: 'dark',
         lastViewedRecipe: null,
-        filterSettings: {}
+        filterSettings: {},
+        filterPanelOpen: false
       };
       
       // Initialize managers
@@ -1885,6 +1919,16 @@
           const isOpening = !widget.classList.contains('is-open');
           target.setAttribute('aria-expanded', isOpening);
           widget.classList.toggle('is-open');
+          
+          // Save panel state to local storage
+          this.uiState.filterPanelOpen = isOpening;
+          this.saveData();
+          
+          // Update button text if filters are active
+          if (!isOpening && this.activeFilters.length > 0) {
+            // Just closed, ensure button reflects filter state
+            this.updateFilterButton();
+          }
         },
         'toggle-section': () => {
           const section = target.dataset.section;
@@ -1939,6 +1983,7 @@
           }
         },
         'remove-search-filter': () => this.removeSearchFilter(parseInt(id)),
+        'filter-by-ingredient': () => this.filterByIngredient(parseInt(id)),
         'cooking-nav-next': () => this.navigateCookingStep(1),
         'cooking-nav-prev': () => this.navigateCookingStep(-1),
         'exit-cooking': () => this.navigateToView('recipes', this.cookingState.recipeId),
@@ -2001,6 +2046,17 @@
       }
       
       this.addFilterDropdown();
+      this.updateFilterButton();
+      
+      // Restore filter panel open state
+      setTimeout(() => {
+        const widget = this.root.querySelector('[data-container="search-widget"]');
+        const toggleBtn = this.root.querySelector('[data-action="toggle-search-widget"]');
+        if (widget && toggleBtn && this.uiState.filterPanelOpen) {
+          widget.classList.add('is-open');
+          toggleBtn.setAttribute('aria-expanded', 'true');
+        }
+      }, 50);
     }
 
     renderRecipeDetail(id) {
@@ -2557,7 +2613,42 @@
     createIngredientListItem(ing) {
       const itemEl = this.cloneTemplate('ingredient-item-template').firstElementChild;
       itemEl.dataset.id = ing.id;
-      itemEl.querySelector('[data-text="name"]').textContent = ing.name;
+      
+      const nameEl = itemEl.querySelector('[data-text="name"]');
+      nameEl.textContent = ing.name;
+      
+      // Count recipes that use this ingredient
+      const recipeCount = this.state.recipes.filter(r => 
+        r.ingredients.some(i => i.ingredientId === ing.id)
+      ).length;
+      
+      // Check if this ingredient is currently in active filters
+      const isActive = this.activeFilters.includes(ing.id);
+      
+      // Make the name clickable to filter recipes
+      const clickableArea = nameEl.parentElement;
+      clickableArea.style.cursor = 'pointer';
+      clickableArea.style.flex = '1';
+      clickableArea.dataset.action = 'filter-by-ingredient';
+      clickableArea.dataset.id = ing.id;
+      
+      if (isActive) {
+        clickableArea.title = `Remove ${ing.name} filter (currently showing ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''})`;
+        itemEl.style.backgroundColor = 'var(--color-surface)';
+        itemEl.style.borderLeft = '4px solid var(--color-primary)';
+        itemEl.style.paddingLeft = 'calc(var(--spacing-md) - 4px)';
+      } else {
+        clickableArea.title = `Show ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} using ${ing.name}`;
+      }
+      
+      // Add recipe count badge
+      if (recipeCount > 0) {
+        const countBadge = document.createElement('span');
+        countBadge.className = 'recipe-count-badge';
+        countBadge.textContent = recipeCount;
+        countBadge.title = `${recipeCount} recipe${recipeCount !== 1 ? 's' : ''}`;
+        clickableArea.appendChild(countBadge);
+      }
 
       const editBtn = itemEl.querySelector('[data-action="edit-ingredient-inline"]');
       editBtn.dataset.id = ing.id;
@@ -2652,11 +2743,52 @@
       this.root.querySelector('#filter-dropdowns').innerHTML = ''; // Clear and re-add
       this.addFilterDropdown();
       this.filterRecipeList();
+      this.updateFilterButton();
       
       // Show toast feedback
       const ingredient = this.state.ingredients.find(i => i.id === id);
       if (ingredient) {
         this.showToast(`Removed ${ingredient.name} filter`);
+      }
+    }
+
+    filterByIngredient(ingredientId) {
+      const ingredient = this.state.ingredients.find(i => i.id === ingredientId);
+      if (!ingredient) return;
+      
+      // Toggle the filter - if already active, remove it; otherwise add it
+      const isActive = this.activeFilters.includes(ingredientId);
+      
+      if (isActive) {
+        this.removeSearchFilter(ingredientId);
+      } else {
+        // Add to filters
+        this.activeFilters.push(ingredientId);
+        
+        // Save filter settings and panel state
+        this.uiState.filterSettings = { activeFilters: this.activeFilters };
+        this.uiState.filterPanelOpen = true;
+        this.saveData();
+        
+        // Navigate to recipes view with filter active
+        this.navigateToView('recipes');
+        
+        // Open the filter panel automatically
+        setTimeout(() => {
+          const widget = this.root.querySelector('[data-container="search-widget"]');
+          const toggleBtn = this.root.querySelector('[data-action="toggle-search-widget"]');
+          if (widget && !widget.classList.contains('is-open')) {
+            widget.classList.add('is-open');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+          }
+          this.updateFilterButton();
+        }, 100);
+        
+        // Show toast feedback
+        const recipeCount = this.state.recipes.filter(r => 
+          r.ingredients.some(i => i.ingredientId === ingredientId)
+        ).length;
+        this.showToast(`Showing ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} with ${ingredient.name}`);
       }
     }
 
@@ -2738,11 +2870,28 @@
       this.root.querySelector('#filter-dropdowns').innerHTML = '';
       this.addFilterDropdown();
       this.filterRecipeList();
+      this.updateFilterButton();
       
       // Show toast feedback
       const ingredient = this.state.ingredients.find(i => i.id === ingredientId);
       if (ingredient) {
         this.showToast(`Filtering by ${ingredient.name}`);
+      }
+    }
+
+    updateFilterButton() {
+      const toggleBtn = this.root.querySelector('[data-action="toggle-search-widget"]');
+      if (!toggleBtn) return;
+      
+      if (this.activeFilters.length > 0) {
+        const filterCount = this.activeFilters.length;
+        toggleBtn.textContent = `Filter Recipes (${filterCount} active)`;
+        toggleBtn.classList.remove('secondary');
+        toggleBtn.classList.add('primary');
+      } else {
+        toggleBtn.textContent = 'Filter Recipes';
+        toggleBtn.classList.remove('primary');
+        toggleBtn.classList.add('secondary');
       }
     }
 
