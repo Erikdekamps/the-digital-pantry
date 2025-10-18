@@ -1212,7 +1212,7 @@
         <span>Instructions</span>
         <button class="button primary" data-action="navigate" data-view="cooking" data-id="" style="margin-left: auto;">Start Cooking</button>
       </h3>
-      <ol data-list-target="steps"></ol>
+      <div data-list-target="steps"></div>
     </div>
     <div class="detail-section" data-container="notes">
       <h3>Notes</h3>
@@ -1260,8 +1260,8 @@
       </fieldset>
       <fieldset>
         <legend>Instructions</legend>
-        <div data-list-target="steps"></div>
-        <button type="button" class="button secondary" data-action="form-add-instruction-row">Add Step</button>
+        <div data-list-target="instruction-categories"></div>
+        <button type="button" class="button secondary" data-action="form-add-instruction-category">Add Category</button>
       </fieldset>
       <fieldset>
         <legend>Notes</legend>
@@ -1303,7 +1303,7 @@
 
 <template id="instruction-form-row-template">
   <div class="dynamic-list-item instruction-row">
-    <textarea name="instruction" aria-label="Instruction Step" rows="2" placeholder="Describe this step..." required></textarea>
+    <textarea name="instruction-step" aria-label="Instruction Step" rows="2" placeholder="Describe this step..." required></textarea>
     <button type="button" class="button danger icon-button" data-action="form-remove-row" aria-label="Remove Instruction Step">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
@@ -1616,12 +1616,46 @@
     }
 
     _renderInstructionsList(view, recipe) {
-      const stepsList = view.querySelector('[data-list-target="steps"]');
-      recipe.instructions.forEach(step => {
-        const li = document.createElement('li');
-        li.textContent = step;
-        stepsList.appendChild(li);
+      const stepsContainer = view.querySelector('[data-list-target="steps"]');
+      
+      // Handle both old format (array of strings) and new format (array of categories)
+      const instructionCategories = this._normalizeInstructions(recipe.instructions);
+      
+      instructionCategories.forEach(category => {
+        if (category.category) {
+          const categoryHeading = document.createElement('h4');
+          categoryHeading.textContent = category.category;
+          categoryHeading.style.marginTop = 'var(--spacing-lg)';
+          categoryHeading.style.marginBottom = 'var(--spacing-sm)';
+          stepsContainer.appendChild(categoryHeading);
+        }
+        
+        const ol = document.createElement('ol');
+        if (category.category) {
+          ol.style.marginBottom = 'var(--spacing-lg)';
+        }
+        
+        category.steps.forEach(step => {
+          const li = document.createElement('li');
+          li.textContent = step;
+          ol.appendChild(li);
+        });
+        
+        stepsContainer.appendChild(ol);
       });
+    }
+
+    _normalizeInstructions(instructions) {
+      // Check if instructions is already in new format
+      if (instructions.length > 0 && typeof instructions[0] === 'object' && 'steps' in instructions[0]) {
+        return instructions;
+      }
+      
+      // Convert old format (array of strings) to new format
+      return [{
+        category: '',
+        steps: instructions
+      }];
     }
 
     _setupDetailButtons(id) {
@@ -1669,7 +1703,7 @@
         category: '', 
         tags: [], 
         ingredients: [{}], 
-        instructions: [''], 
+        instructions: [{category: '', steps: ['']}], 
         notes: '' 
       };
 
@@ -1684,7 +1718,7 @@
               category: parsedDraft.category || '',
               tags: parsedDraft.tags ? parsedDraft.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
               ingredients: parsedDraft.ingredients?.length ? parsedDraft.ingredients : [{}],
-              instructions: parsedDraft.instructions?.length ? parsedDraft.instructions : [''],
+              instructions: parsedDraft.instructions?.length ? parsedDraft.instructions : [{category: '', steps: ['']}],
               notes: parsedDraft.notes || ''
             };
           }
@@ -1713,9 +1747,10 @@
         this.app.addIngredientRowToForm(ingredientsContainer, ing)
       );
 
-      const stepsContainer = form.querySelector('[data-list-target="steps"]');
-      (recipe.instructions.length ? recipe.instructions : ['']).forEach(step => 
-        this.app.addInstructionRowToForm(stepsContainer, step)
+      const categoriesContainer = form.querySelector('[data-list-target="instruction-categories"]');
+      const instructionCategories = this._normalizeInstructions(recipe.instructions);
+      instructionCategories.forEach(category => 
+        this.app.addInstructionCategoryToForm(categoriesContainer, category)
       );
     }
 
@@ -1733,7 +1768,7 @@
             amount: row.querySelector('[name="amount"]').value,
             measurement: row.querySelector('[name="measurement"]').value
           })),
-          instructions: Array.from(form.querySelectorAll('[name="instruction"]')).map(input => input.value),
+          instructions: this._extractInstructionsFromForm(form),
           notes: formData.get('notes')
         };
         localStorage.setItem('recipeFormDraft', JSON.stringify(draft));
@@ -1741,6 +1776,24 @@
 
       form.addEventListener('input', autoSaveDraft);
       form.addEventListener('change', autoSaveDraft);
+    }
+
+    _extractInstructionsFromForm(form) {
+      const categories = [];
+      form.querySelectorAll('.instruction-category').forEach(categoryEl => {
+        const categoryName = categoryEl.querySelector('[name="instruction-category-name"]').value;
+        const steps = Array.from(categoryEl.querySelectorAll('[name="instruction-step"]'))
+          .map(input => input.value)
+          .filter(Boolean);
+        
+        if (steps.length > 0) {
+          categories.push({
+            category: categoryName,
+            steps: steps
+          });
+        }
+      });
+      return categories.length > 0 ? categories : [{category: '', steps: ['']}];
     }
   }
 
@@ -1968,7 +2021,9 @@
         'exit-cooking': () => this.navigateToView('recipes', this.cookingState.recipeId),
         'form-add-ingredient-row': () => this.addIngredientRowToForm(),
         'form-remove-row': () => target.closest('.dynamic-list-item').remove(),
-        'form-add-instruction-row': () => this.addInstructionRowToForm()
+        'form-add-instruction-row': () => this.addInstructionRowToForm(),
+        'form-add-instruction-category': () => this.addInstructionCategoryToForm(),
+        'form-remove-instruction-category': () => target.closest('.instruction-category').remove()
       };
 
       if (actions[action]) {
@@ -2192,7 +2247,7 @@
           amount: row.querySelector('[name="amount"]').value,
           measurement: row.querySelector('[name="measurement"]').value
         })).filter(ing => ing.ingredientId && ing.amount),
-        instructions: Array.from(form.querySelectorAll('[name="instruction"]')).map(input => input.value.trim()).filter(Boolean),
+        instructions: this._extractInstructionsFromFormForSave(form),
         notes: formData.get('notes')
       };
 
@@ -2214,6 +2269,24 @@
       
       this.showToast('Recipe saved!');
       this.navigateToView('recipes', recipeData.id);
+    }
+
+    _extractInstructionsFromFormForSave(form) {
+      const categories = [];
+      form.querySelectorAll('.instruction-category').forEach(categoryEl => {
+        const categoryName = categoryEl.querySelector('[name="instruction-category-name"]').value.trim();
+        const steps = Array.from(categoryEl.querySelectorAll('[name="instruction-step"]'))
+          .map(input => input.value.trim())
+          .filter(Boolean);
+        
+        if (steps.length > 0) {
+          categories.push({
+            category: categoryName,
+            steps: steps
+          });
+        }
+      });
+      return categories.length > 0 ? categories : [{category: '', steps: []}];
     }
 
     deleteRecipe(id) {
@@ -2431,11 +2504,14 @@
       }
 
       const recipe = this.state.recipes.find(r => r.id === id);
+      const flatSteps = this._flattenInstructions(recipe.instructions);
+      
       if (!this.cookingState.recipeId || this.cookingState.recipeId !== id) {
         this.cookingState = {
           recipeId: id,
           currentStep: 0,
-          totalSteps: recipe.instructions.length
+          totalSteps: flatSteps.length,
+          flatSteps: flatSteps
         };
       }
 
@@ -2447,9 +2523,42 @@
       this.saveData();
     }
 
+    _flattenInstructions(instructions) {
+      // Normalize instructions to handle both old and new formats
+      const normalized = this._normalizeInstructionsForCooking(instructions);
+      const flatSteps = [];
+      
+      normalized.forEach(category => {
+        category.steps.forEach((step, index) => {
+          flatSteps.push({
+            step: step,
+            category: category.category,
+            stepInCategory: index + 1,
+            totalInCategory: category.steps.length
+          });
+        });
+      });
+      
+      return flatSteps;
+    }
+
+    _normalizeInstructionsForCooking(instructions) {
+      // Check if instructions is already in new format
+      if (instructions.length > 0 && typeof instructions[0] === 'object' && 'steps' in instructions[0]) {
+        return instructions;
+      }
+      
+      // Convert old format (array of strings) to new format
+      return [{
+        category: '',
+        steps: instructions
+      }];
+    }
+
     renderCookingStep() {
-      const { recipeId, currentStep, totalSteps } = this.cookingState;
+      const { recipeId, currentStep, totalSteps, flatSteps } = this.cookingState;
       const recipe = this.state.recipes.find(r => r.id === recipeId);
+      const currentStepData = flatSteps[currentStep];
       const progress = totalSteps > 0 ? ((currentStep + 1) / totalSteps) * 100 : 0;
       const progressText = `Step ${currentStep + 1} of ${totalSteps}`;
 
@@ -2460,7 +2569,23 @@
 
       this.root.querySelector('[data-text="step-count"]').textContent = progressText;
       this.root.querySelector('[data-element="progress-indicator"]').style.width = `${progress}%`;
-      this.root.querySelector('[data-text="step-description"]').textContent = recipe.instructions[currentStep];
+      
+      const stepDescription = this.root.querySelector('[data-text="step-description"]');
+      stepDescription.textContent = currentStepData.step;
+      
+      // Show category if it exists
+      const categoryLabel = this.root.querySelector('[data-text="step-category"]');
+      if (currentStepData.category) {
+        if (!categoryLabel) {
+          const label = document.createElement('p');
+          label.dataset.text = 'step-category';
+          label.style.cssText = 'margin: 0 0 var(--spacing-sm) 0; font-weight: bold; color: var(--color-primary);';
+          stepDescription.parentNode.insertBefore(label, stepDescription);
+        }
+        this.root.querySelector('[data-text="step-category"]').textContent = `${currentStepData.category} (Step ${currentStepData.stepInCategory}/${currentStepData.totalInCategory})`;
+      } else if (categoryLabel) {
+        categoryLabel.textContent = '';
+      }
 
       const nextButton = this.root.querySelector('[data-action="cooking-nav-next"]');
       const prevButton = this.root.querySelector('[data-action="cooking-nav-prev"]');
@@ -2575,6 +2700,59 @@
       const row = this.cloneTemplate('instruction-form-row-template').firstElementChild;
       row.querySelector('textarea').value = data;
       container.appendChild(row);
+    }
+
+    addInstructionCategoryToForm(container = null, data = {category: '', steps: ['']}) {
+      container = container || this.root.querySelector('[data-list-target="instruction-categories"]');
+      
+      const categoryDiv = document.createElement('div');
+      categoryDiv.className = 'instruction-category';
+      categoryDiv.style.cssText = 'border: 1px solid var(--color-border); border-radius: var(--radius); padding: var(--spacing-md); margin-bottom: var(--spacing-md); background-color: var(--color-surface);';
+      
+      const categoryHeader = document.createElement('div');
+      categoryHeader.style.cssText = 'display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md);';
+      
+      const categoryInput = document.createElement('input');
+      categoryInput.type = 'text';
+      categoryInput.name = 'instruction-category-name';
+      categoryInput.placeholder = 'Category name (e.g., "Make the Sauce", "Prepare Base")';
+      categoryInput.value = data.category || '';
+      categoryInput.style.cssText = 'flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background-color: var(--color-background); color: var(--color-on-background);';
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'icon-button danger';
+      removeBtn.dataset.action = 'form-remove-instruction-category';
+      removeBtn.title = 'Remove category';
+      removeBtn.setAttribute('aria-label', 'Remove instruction category');
+      removeBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+        </svg>
+      `;
+      
+      categoryHeader.appendChild(categoryInput);
+      categoryHeader.appendChild(removeBtn);
+      categoryDiv.appendChild(categoryHeader);
+      
+      const stepsContainer = document.createElement('div');
+      stepsContainer.className = 'instruction-steps-container';
+      stepsContainer.dataset.listTarget = 'category-steps';
+      categoryDiv.appendChild(stepsContainer);
+      
+      const addStepBtn = document.createElement('button');
+      addStepBtn.type = 'button';
+      addStepBtn.className = 'button secondary';
+      addStepBtn.textContent = 'Add Step';
+      addStepBtn.style.marginTop = 'var(--spacing-sm)';
+      addStepBtn.onclick = () => this.addInstructionRowToForm(stepsContainer, '');
+      categoryDiv.appendChild(addStepBtn);
+      
+      // Add initial steps
+      const steps = data.steps && data.steps.length > 0 ? data.steps : [''];
+      steps.forEach(step => this.addInstructionRowToForm(stepsContainer, step));
+      
+      container.appendChild(categoryDiv);
     }
 
     removeSearchFilter(id) {
@@ -2750,12 +2928,28 @@
               { ingredientId: 6, amount: 'to taste', measurement: '' }
             ],
             instructions: [
-              'Bring a large pot of salted water to a boil. Cook spaghetti according to package directions until al dente.',
-              'Meanwhile, in a large skillet, heat olive oil over medium-low heat. Add garlic and red pepper flakes. Cook, stirring occasionally, until garlic is golden brown, about 3-5 minutes. Be careful not to burn it.',
-              'Reserve about 1 cup of pasta water, then drain the spaghetti.',
-              'Add the drained spaghetti to the skillet with the garlic and oil. Toss to combine.',
-              'Add about 1/4 cup of the reserved pasta water and the chopped parsley. Toss vigorously for about a minute until a creamy sauce forms.',
-              'Season with salt to taste. Serve immediately.'
+              {
+                category: 'Prepare Pasta',
+                steps: [
+                  'Bring a large pot of salted water to a boil. Cook spaghetti according to package directions until al dente.',
+                  'Reserve about 1 cup of pasta water, then drain the spaghetti.'
+                ]
+              },
+              {
+                category: 'Make the Sauce',
+                steps: [
+                  'Meanwhile, in a large skillet, heat olive oil over medium-low heat. Add garlic and red pepper flakes.',
+                  'Cook, stirring occasionally, until garlic is golden brown, about 3-5 minutes. Be careful not to burn it.'
+                ]
+              },
+              {
+                category: 'Combine and Serve',
+                steps: [
+                  'Add the drained spaghetti to the skillet with the garlic and oil. Toss to combine.',
+                  'Add about 1/4 cup of the reserved pasta water and the chopped parsley. Toss vigorously for about a minute until a creamy sauce forms.',
+                  'Season with salt to taste. Serve immediately.'
+                ]
+              }
             ],
             notes: 'For extra flavor, add a splash of white wine with the garlic. Ensure pasta water is well-salted like the sea!'
           },
@@ -2772,11 +2966,21 @@
               { ingredientId: 7, amount: '1/4', measurement: 'tsp' }
             ],
             instructions: [
-              'Preheat oven to 400°F (200°C).',
-              'In a small bowl, mix together olive oil, lemon juice, minced garlic, parsley, salt, and pepper.',
-              'Place chicken breasts in a baking dish and pour the lemon herb mixture over them, ensuring they are well-coated.',
-              'Bake for 20-25 minutes, or until chicken is cooked through and juices run clear.',
-              'Let the chicken rest for 5 minutes before slicing and serving.'
+              {
+                category: 'Preparation',
+                steps: [
+                  'Preheat oven to 400°F (200°C).',
+                  'In a small bowl, mix together olive oil, lemon juice, minced garlic, parsley, salt, and pepper.'
+                ]
+              },
+              {
+                category: 'Cooking',
+                steps: [
+                  'Place chicken breasts in a baking dish and pour the lemon herb mixture over them, ensuring they are well-coated.',
+                  'Bake for 20-25 minutes, or until chicken is cooked through and juices run clear.',
+                  'Let the chicken rest for 5 minutes before slicing and serving.'
+                ]
+              }
             ],
             notes: ''
           }
