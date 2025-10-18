@@ -149,6 +149,13 @@
       & h2 {
         font-size: clamp(1.25rem, 4vw, 1.75rem);
         margin: 0;
+        flex: 1;
+      }
+
+      /* Right-side action buttons */
+      & > .icon-button,
+      & > button {
+        flex-shrink: 0;
       }
     }
 
@@ -1013,9 +1020,6 @@
       }
 
       .page-header {
-        flex-direction: column;
-        align-items: stretch;
-        
         & h2 {
           font-size: 1.5rem;
         }
@@ -1144,18 +1148,18 @@
 
 <template id="recipe-detail-template">
   <section class="detail-view">
-    <div class="page-header" style="flex-direction: column; align-items: flex-start;">
-      <div style="display: flex; align-items: center; gap: var(--spacing-sm); width: 100%;">
+    <div class="page-header">
+      <div style="display: flex; align-items: flex-start; gap: var(--spacing-sm); flex-direction: column;">
         <h2 data-text="name" style="margin: 0;"></h2>
-        <button class="icon-button" title="Edit recipe" aria-label="Edit recipe" data-action="navigate" data-view="edit-recipe" data-id="">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
-          </svg>
-        </button>
+        <p style="margin:0;"><span data-text="category"></span> | Serves
+          <span data-text="servings"></span></p>
+        <div class="card-footer" data-container="tags" style="margin-top:var(--spacing-sm);"></div>
       </div>
-      <p style="margin:0;"><span data-text="category"></span> | Serves
-        <span data-text="servings"></span></p>
-      <div class="card-footer" data-container="tags" style="margin-top:var(--spacing-sm);"></div>
+      <button class="icon-button" title="Edit recipe" aria-label="Edit recipe" data-action="navigate" data-view="edit-recipe" data-id="">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+        </svg>
+      </button>
     </div>
     <div class="detail-section">
       <h3>Ingredients</h3>
@@ -1178,14 +1182,12 @@
 <template id="recipe-form-template">
   <section>
     <div class="page-header">
-      <div style="display: flex; align-items: center; gap: var(--spacing-md); flex: 1;">
-        <h2 style="margin: 0;"></h2>
-        <button type="submit" form="recipe-form" class="icon-button success" title="Save recipe" aria-label="Save recipe">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/>
-          </svg>
-        </button>
-      </div>
+      <h2 style="margin: 0;"></h2>
+      <button type="submit" form="recipe-form" class="icon-button success" title="Save recipe" aria-label="Save recipe">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/>
+        </svg>
+      </button>
     </div>
     <form data-action="save-recipe" id="recipe-form" novalidate>
       <fieldset>
@@ -1322,7 +1324,9 @@
 
 <template id="shopping-list-template">
   <section>
-    <div class="page-header"><h2>Shopping List</h2></div>
+    <div class="page-header">
+      <h2>Shopping List</h2>
+    </div>
     <ul style="list-style:none; padding:0" data-list-target="shopping-list"></ul>
   </section>
 </template>
