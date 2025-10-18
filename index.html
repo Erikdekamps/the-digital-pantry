@@ -479,6 +479,7 @@
     .form-group textarea,
     .form-group select,
     .select-wrapper select,
+    .select-wrapper input,
     .inline-edit-form input,
     .dynamic-list-item input,
     .dynamic-list-item textarea,
@@ -516,7 +517,8 @@
         pointer-events: none;
       }
 
-      & select {
+      & select,
+      & input {
         -webkit-appearance: none;
         appearance: none;
         padding-right: 2rem;
@@ -1241,7 +1243,7 @@
 <template id="ingredient-form-row-template">
   <div class="dynamic-list-item ingredient-row">
     <div class="select-wrapper">
-      <select name="ingredientId" aria-label="Ingredient" required></select>
+      <input type="text" name="ingredientName" aria-label="Ingredient" placeholder="Start typing to filter..." list="ingredient-datalist" required autocomplete="off">
     </div>
     <input type="text" name="amount" aria-label="Amount" placeholder="e.g. 2" required>
     <input type="text" name="measurement" aria-label="Measurement Unit" placeholder="e.g. cups, tbsp">
@@ -1272,9 +1274,9 @@
       <h2>Ingredients</h2>
     </div>
     
-    <form data-action="add-ingredient-inline" class="ingredient-add-form" style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--color-surface); border-radius: var(--radius); border: 1px solid var(--color-border);">
+    <form data-action="add-ingredient-inline" class="ingredient-add-form" style="margin-bottom: var(--spacing-md); padding: var(--spacing-md); background: var(--color-surface); border-radius: var(--radius); border: 1px solid var(--color-border);">
       <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
-        <input type="text" name="name" placeholder="Add ingredient..." required style="flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background); color: var(--color-on-background);">
+        <input type="text" name="name" placeholder="Add ingredient..." required style="flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background); color: var(--color-on-background);" data-filter-input>
         <button type="submit" class="button primary small">Add</button>
       </div>
     </form>
@@ -1337,6 +1339,9 @@
     </button>
   </li>
 </template>
+
+<!-- Shared datalist for ingredient autocomplete -->
+<datalist id="ingredient-datalist"></datalist>
 
 <script>
   // =====================================================
@@ -1488,32 +1493,31 @@
     }
 
     _renderIngredientsList(view, recipe) {
-      const shoppingListIds = new Set(this.app.state.shoppingList.map(i => i.ingredientId));
+      const shoppingListNames = new Set(this.app.state.shoppingList.map(i => i.ingredientName));
       const ingredientsList = view.querySelector('[data-list-target="ingredients"]');
       
       recipe.ingredients.forEach(ing => {
-        const ingredient = this.app.state.ingredients.find(i => i.id === ing.ingredientId);
-        const li = this._createIngredientListItem(ingredient, ing, recipe, shoppingListIds);
+        const li = this._createIngredientListItem(ing, recipe, shoppingListNames);
         ingredientsList.appendChild(li);
       });
     }
 
-    _createIngredientListItem(ingredient, ing, recipe, shoppingListIds) {
+    _createIngredientListItem(ing, recipe, shoppingListNames) {
       const li = document.createElement('li');
       li.className = 'ingredient-list-item';
       li.style.cursor = 'pointer';
 
       const infoDiv = document.createElement('div');
-      infoDiv.innerHTML = `<strong>${ingredient?.name || 'Unknown'}</strong> — ${ing.amount} ${ing.measurement || ''}`;
+      infoDiv.innerHTML = `<strong>${ing.name || 'Unknown'}</strong> — ${ing.amount} ${ing.measurement || ''}`;
       
       const actionsDiv = document.createElement('div');
       actionsDiv.style.position = 'relative';
       actionsDiv.style.zIndex = '2';
 
-      if (shoppingListIds.has(ing.ingredientId)) {
-        this._addRemoveFromListButton(actionsDiv, ing, ingredient, li);
+      if (shoppingListNames.has(ing.name)) {
+        this._addRemoveFromListButton(actionsDiv, ing, li);
       } else {
-        this._addToListButton(actionsDiv, ing, ingredient, recipe, li);
+        this._addToListButton(actionsDiv, ing, recipe, li);
       }
       
       li.appendChild(infoDiv);
@@ -1521,16 +1525,16 @@
       return li;
     }
 
-    _addRemoveFromListButton(actionsDiv, ing, ingredient, li) {
+    _addRemoveFromListButton(actionsDiv, ing, li) {
       li.dataset.action = 'remove-from-shopping-list';
-      li.dataset.id = ing.ingredientId;
+      li.dataset.name = ing.name;
       
       const removeBtn = document.createElement('button');
       removeBtn.className = 'icon-button success';
       removeBtn.dataset.action = 'remove-from-shopping-list';
-      removeBtn.dataset.id = ing.ingredientId;
+      removeBtn.dataset.name = ing.name;
       removeBtn.title = 'In shopping list - click to remove';
-      removeBtn.setAttribute('aria-label', `Remove ${ingredient?.name || 'ingredient'} from shopping list`);
+      removeBtn.setAttribute('aria-label', `Remove ${ing.name || 'ingredient'} from shopping list`);
       removeBtn.innerHTML = `
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8"/>
@@ -1539,9 +1543,9 @@
       actionsDiv.appendChild(removeBtn);
     }
 
-    _addToListButton(actionsDiv, ing, ingredient, recipe, li) {
+    _addToListButton(actionsDiv, ing, recipe, li) {
       li.dataset.action = 'add-to-shopping-list';
-      li.dataset.id = ing.ingredientId;
+      li.dataset.name = ing.name;
       li.dataset.amount = ing.amount;
       li.dataset.measurement = ing.measurement || '';
       li.dataset.recipeName = recipe.name;
@@ -1549,12 +1553,12 @@
       const addToListBtn = document.createElement('button');
       addToListBtn.className = 'icon-button primary';
       addToListBtn.dataset.action = 'add-to-shopping-list';
-      addToListBtn.dataset.id = ing.ingredientId;
+      addToListBtn.dataset.name = ing.name;
       addToListBtn.dataset.amount = ing.amount;
       addToListBtn.dataset.measurement = ing.measurement || '';
       addToListBtn.dataset.recipeName = recipe.name;
       addToListBtn.title = 'Add to shopping list';
-      addToListBtn.setAttribute('aria-label', `Add ${ingredient?.name || 'ingredient'} to shopping list`);
+      addToListBtn.setAttribute('aria-label', `Add ${ing.name || 'ingredient'} to shopping list`);
       addToListBtn.innerHTML = `
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M17,18A2,2 0 0,1 19,20A2,2 0 0,1 17,22C15.89,22 15,21.1 15,20C15,18.89 15.89,18 17,18M1,2H4.27L5.21,4H20A1,1 0 0,1 21,5C21,5.17 20.95,5.34 20.88,5.5L17.3,11.97C16.96,12.58 16.3,13 15.55,13H8.1L7.2,14.63L7.17,14.75A0.25,0.25 0 0,0 7.42,15H19V17H7C5.89,17 5,16.1 5,15C5,14.65 5.09,14.32 5.24,14.04L6.6,11.59L3,4H1V2M7,18A2,2 0 0,1 9,20A2,2 0 0,1 7,22C5.89,22 5,21.1 5,20C5,18.89 5.89,18 7,18Z"/>
@@ -1690,6 +1694,9 @@
       form.elements.tags.value = recipe.tags.join(', ');
       form.elements.notes.value = recipe.notes;
 
+      // Populate the ingredient datalist for autocomplete filtering
+      this.app.populateIngredientDatalist();
+
       const ingredientsContainer = form.querySelector('[data-list-target="ingredients"]');
       (recipe.ingredients.length ? recipe.ingredients : [{}]).forEach(ing => 
         this.app.addIngredientRowToForm(ingredientsContainer, ing)
@@ -1712,7 +1719,7 @@
           category: formData.get('category'),
           tags: formData.get('tags'),
           ingredients: Array.from(form.querySelectorAll('.ingredient-row')).map(row => ({
-            ingredientId: row.querySelector('[name="ingredientId"]').value,
+            name: row.querySelector('[name="ingredientName"]').value,
             amount: row.querySelector('[name="amount"]').value,
             measurement: row.querySelector('[name="measurement"]').value
           })),
@@ -1771,11 +1778,6 @@
       const itemsByRecipe = {};
       
       this.app.state.shoppingList
-        .map(item => ({ 
-          ...item, 
-          ingredient: this.app.state.ingredients.find(i => i.id === item.ingredientId) 
-        }))
-        .filter(item => item.ingredient)
         .forEach(item => {
           if (!itemsByRecipe[item.recipeName]) {
             itemsByRecipe[item.recipeName] = [];
@@ -1820,7 +1822,7 @@
 
     _createShoppingItem(item) {
       const itemEl = this.app.cloneTemplate('shopping-list-item-template').firstElementChild;
-      itemEl.querySelector('[data-text="name"]').textContent = item.ingredient.name;
+      itemEl.querySelector('[data-text="name"]').textContent = item.ingredientName;
       itemEl.querySelector('[data-text="amount"]').textContent = `${item.amount} ${item.measurement || ''}`.trim();
       
       if (item.checked) {
@@ -1831,7 +1833,7 @@
       
       // Make whole item clickable
       itemEl.dataset.action = 'toggle-shopping-item';
-      itemEl.dataset.id = item.ingredientId;
+      itemEl.dataset.name = item.ingredientName;
       itemEl.style.cursor = 'pointer';
       
       return itemEl;
@@ -1840,9 +1842,9 @@
     _setupToggleButton(itemEl, item) {
       const toggleBtn = itemEl.querySelector('button');
       toggleBtn.dataset.action = 'toggle-shopping-item';
-      toggleBtn.dataset.id = item.ingredientId;
+      toggleBtn.dataset.name = item.ingredientName;
       toggleBtn.setAttribute('aria-label', 
-        item.checked ? `Uncheck ${item.ingredient.name}` : `Check ${item.ingredient.name}`
+        item.checked ? `Uncheck ${item.ingredientName}` : `Check ${item.ingredientName}`
       );
       
       if (item.checked) {
@@ -1887,9 +1889,11 @@
       this.app.saveData();
     }
 
-    toggleShoppingItem(target, id) {
-      const ingredientId = parseInt(id);
-      const item = this.app.state.shoppingList.find(i => i.ingredientId === ingredientId);
+    toggleShoppingItem(target, nameOrId) {
+      // Support both name and id for backward compatibility
+      const item = this.app.state.shoppingList.find(i => 
+        i.ingredientName === nameOrId || i.ingredientName === target.dataset.name
+      );
       if (!item) return;
 
       item.checked = !item.checked;
@@ -2077,7 +2081,7 @@
         return;
       }
 
-      const { action, view, id } = target.dataset;
+      const { action, view, id, name } = target.dataset;
       const actions = {
         'navigate': () => {
           event.preventDefault();
@@ -2086,12 +2090,12 @@
         'delete-recipe': () => this.deleteRecipe(parseInt(id)),
         'delete-ingredient': () => this.deleteIngredient(parseInt(id), target),
         'add-to-shopping-list': () => this.addToShoppingList(target),
-        'remove-from-shopping-list': () => this.removeFromShoppingList(parseInt(id), target),
+        'remove-from-shopping-list': () => this.removeFromShoppingList(name, target),
         'clear-shopping-list': () => this.clearShoppingList(),
         'toggle-theme': () => this.toggleTheme(),
         'close-modal': () => this.eventActions.closeModal(target, event),
         'toggle-section': () => this.eventActions.toggleSection(target, event),
-        'toggle-shopping-item': () => this.eventActions.toggleShoppingItem(target, id),
+        'toggle-shopping-item': () => this.eventActions.toggleShoppingItem(target, name),
         'remove-search-filter': () => this.removeSearchFilter(parseInt(id)),
         'filter-by-ingredient': () => this.filterByIngredient(parseInt(id)),
         'cooking-nav-next': () => this.navigateCookingStep(1),
@@ -2169,17 +2173,41 @@
     renderIngredientsList() {
       const view = this.cloneTemplate('ingredients-list-template');
       const container = view.querySelector('[data-list-target="ingredients"]');
+      const filterInput = view.querySelector('[data-filter-input]');
       
-      if (this.state.ingredients.length === 0) {
-        container.innerHTML = `<div class="empty-state"><p>No ingredients yet. Click + to add one.</p></div>`;
-      } else {
-        // Simple sorted list of ingredients
-        this.state.ingredients
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .forEach(ing => {
-            container.appendChild(this.createIngredientListItem(ing));
-          });
+      const renderFilteredList = (filterText = '') => {
+        container.innerHTML = '';
+        const lowerFilter = filterText.toLowerCase().trim();
+        
+        const filteredIngredients = this.state.ingredients.filter(ing => 
+          ing.name.toLowerCase().includes(lowerFilter)
+        );
+        
+        if (filteredIngredients.length === 0) {
+          if (this.state.ingredients.length === 0) {
+            container.innerHTML = `<div class="empty-state"><p>No ingredients yet. Click + to add one.</p></div>`;
+          } else {
+            container.innerHTML = `<div class="empty-state"><p>No ingredients match "${filterText}".</p></div>`;
+          }
+        } else {
+          filteredIngredients
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .forEach(ing => {
+              container.appendChild(this.createIngredientListItem(ing));
+            });
+        }
+      };
+      
+      // Initial render
+      renderFilteredList();
+      
+      // Add filter listener
+      if (filterInput) {
+        filterInput.addEventListener('input', (e) => {
+          renderFilteredList(e.target.value);
+        });
       }
+      
       this.root.appendChild(view);
     }
 
@@ -2202,10 +2230,10 @@
         category: formData.get('category'),
         tags: formData.get('tags').split(',').map(tag => tag.trim()).filter(Boolean),
         ingredients: Array.from(form.querySelectorAll('.ingredient-row')).map(row => ({
-          ingredientId: parseInt(row.querySelector('[name="ingredientId"]').value),
+          name: row.querySelector('[name="ingredientName"]').value,
           amount: row.querySelector('[name="amount"]').value,
           measurement: row.querySelector('[name="measurement"]').value
-        })).filter(ing => ing.ingredientId && ing.amount),
+        })).filter(ing => ing.name && ing.amount),
         instructions: this._extractInstructionsFromFormForSave(form),
         notes: formData.get('notes')
       };
@@ -2279,7 +2307,12 @@
     }
 
     deleteIngredient(id, target) {
-      const isUsed = this.state.recipes.some(recipe => recipe.ingredients.some(ing => ing.ingredientId === id));
+      const ingredient = this.state.ingredients.find(i => i.id === id);
+      if (!ingredient) return;
+      
+      const isUsed = this.state.recipes.some(recipe => 
+        recipe.ingredients.some(ing => ing.name === ingredient.name)
+      );
       if (isUsed) {
         this.showToast('Cannot delete: Ingredient is used in a recipe.', 'error');
         return;
@@ -2362,19 +2395,19 @@
       
       // Get data from either the list item or the button
       const dataSource = listItem || button;
-      const { id, amount, measurement, recipeName } = dataSource.dataset;
-      const ingredientId = parseInt(id);
+      const { name, amount, measurement, recipeName } = dataSource.dataset;
+      const ingredientName = name;
 
-      if (this.state.shoppingList.some(item => item.ingredientId === ingredientId)) {
+      if (this.state.shoppingList.some(item => item.ingredientName === ingredientName)) {
         return;
       }
-      this.state.shoppingList.push({ ingredientId, amount, measurement, recipeName });
+      this.state.shoppingList.push({ ingredientName, amount, measurement, recipeName });
       this.saveData();
       
       // Update list item
       if (listItem) {
         listItem.dataset.action = 'remove-from-shopping-list';
-        listItem.dataset.id = ingredientId;
+        listItem.dataset.name = ingredientName;
         // Keep the data attributes for when we need to add back
       }
 
@@ -2382,9 +2415,8 @@
       if (button && button.tagName === 'BUTTON') {
         button.className = 'icon-button success';
         button.dataset.action = 'remove-from-shopping-list';
-        button.dataset.id = ingredientId;
+        button.dataset.name = ingredientName;
         button.title = 'In shopping list - click to remove';
-        const ingredientName = button.getAttribute('aria-label')?.split(' to shopping')[0].replace('Add ', '') || 'ingredient';
         button.setAttribute('aria-label', `Remove ${ingredientName} from shopping list`);
         button.innerHTML = `
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -2396,8 +2428,8 @@
       this.showToast('Added to shopping list.');
     }
 
-    removeFromShoppingList(id, target) {
-      this.state.shoppingList = this.state.shoppingList.filter(item => item.ingredientId !== id);
+    removeFromShoppingList(ingredientName, target) {
+      this.state.shoppingList = this.state.shoppingList.filter(item => item.ingredientName !== ingredientName);
       this.saveData();
 
       if (this.currentState.view === 'shopping-list') {
@@ -2417,16 +2449,15 @@
         // Update list item - keep the existing data attributes
         if (listItem) {
           listItem.dataset.action = 'add-to-shopping-list';
-          // Data attributes (id, amount, measurement, recipeName) should already be there
+          // Data attributes (name, amount, measurement, recipeName) should already be there
         }
         
         // Update icon button to show add state
         if (button && button.tagName === 'BUTTON') {
           button.className = 'icon-button primary';
           button.dataset.action = 'add-to-shopping-list';
-          button.dataset.id = id;
+          button.dataset.name = ingredientName;
           button.title = 'Add to shopping list';
-          const ingredientName = button.getAttribute('aria-label')?.split(' from shopping')[0].replace('Remove ', '') || 'ingredient';
           button.setAttribute('aria-label', `Add ${ingredientName} to shopping list`);
           button.innerHTML = `
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -2582,11 +2613,14 @@
       this.toastManager.show(message, type);
     }
 
-    getIngredientOptions(selectedId = null) {
-      return this.state.ingredients
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(ing => `<option value="${ing.id}" ${ing.id === selectedId ? 'selected' : ''}>${ing.name}</option>`)
-        .join('');
+    populateIngredientDatalist() {
+      const datalist = document.getElementById('ingredient-datalist');
+      if (datalist) {
+        datalist.innerHTML = this.state.ingredients
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map(ing => `<option value="${ing.name}">`)
+          .join('');
+      }
     }
 
     createBadge(innerHTML) {
@@ -2671,7 +2705,8 @@
     addIngredientRowToForm(container = null, data = {}) {
       container = container || this.root.querySelector('[data-list-target="ingredients"]');
       const row = this.cloneTemplate('ingredient-form-row-template').firstElementChild;
-      row.querySelector('select').innerHTML = `<option value="">Select ingredient...</option>` + this.getIngredientOptions(data.ingredientId);
+      const input = row.querySelector('input[name="ingredientName"]');
+      input.value = data.name || '';
       row.querySelector('[name="amount"]').value = data.amount || '';
       row.querySelector('[name="measurement"]').value = data.measurement || '';
       container.appendChild(row);
@@ -2935,132 +2970,93 @@
       return {
         ingredients: [
           // Pantry Staples - Basics
-          { id: 1, name: 'All-Purpose Flour' },
-          { id: 2, name: 'Granulated Sugar' },
-          { id: 3, name: 'Brown Sugar' },
-          { id: 4, name: 'Confectioner\'s Sugar' },
-          { id: 5, name: 'Salt' },
-          { id: 6, name: 'Black Pepper' },
-          { id: 7, name: 'Baking Soda' },
-          { id: 8, name: 'Baking Powder' },
-          { id: 9, name: 'Cornstarch' },
-          { id: 10, name: 'White Rice' },
-          { id: 11, name: 'Spaghetti' },
-          { id: 12, name: 'Penne Pasta' },
-          { id: 13, name: 'Bread' },
-          { id: 14, name: 'Tortillas' },
-          { id: 15, name: 'Potatoes' },
+          { name: 'All-Purpose Flour' },
+          { name: 'Granulated Sugar' },
+          { name: 'Brown Sugar' },
+          { name: 'Salt' },
+          { name: 'Black Pepper' },
+          { name: 'Baking Soda' },
+          { name: 'Baking Powder' },
+          { name: 'White Rice' },
+          { name: 'Spaghetti' },
+          { name: 'Penne Pasta' },
+          { name: 'Bread' },
+          { name: 'Potatoes' },
           
           // Oils and Condiments
-          { id: 16, name: 'Olive Oil' },
-          { id: 17, name: 'Vegetable Oil' },
-          { id: 18, name: 'Canola Oil' },
-          { id: 19, name: 'Apple Cider Vinegar' },
-          { id: 20, name: 'White Vinegar' },
-          { id: 21, name: 'Balsamic Vinegar' },
-          { id: 22, name: 'Soy Sauce' },
-          { id: 23, name: 'Ketchup' },
-          { id: 24, name: 'Mustard' },
-          { id: 25, name: 'Mayonnaise' },
-          { id: 26, name: 'Honey' },
-          { id: 27, name: 'Maple Syrup' },
-          { id: 28, name: 'Hot Sauce' },
+          { name: 'Olive Oil' },
+          { name: 'Vegetable Oil' },
+          { name: 'Soy Sauce' },
+          { name: 'Ketchup' },
+          { name: 'Mustard' },
+          { name: 'Mayonnaise' },
+          { name: 'Honey' },
+          { name: 'Hot Sauce' },
           
           // Herbs and Spices
-          { id: 29, name: 'Garlic Powder' },
-          { id: 30, name: 'Onion Powder' },
-          { id: 31, name: 'Cumin' },
-          { id: 32, name: 'Paprika' },
-          { id: 33, name: 'Chili Powder' },
-          { id: 34, name: 'Dried Oregano' },
-          { id: 35, name: 'Dried Basil' },
-          { id: 36, name: 'Dried Parsley' },
-          { id: 37, name: 'Cinnamon' },
-          { id: 38, name: 'Nutmeg' },
-          { id: 39, name: 'Bay Leaves' },
-          { id: 40, name: 'Vanilla Extract' },
-          { id: 41, name: 'Red Pepper Flakes' },
+          { name: 'Garlic Powder' },
+          { name: 'Onion Powder' },
+          { name: 'Cumin' },
+          { name: 'Paprika' },
+          { name: 'Chili Powder' },
+          { name: 'Dried Oregano' },
+          { name: 'Dried Basil' },
+          { name: 'Cinnamon' },
+          { name: 'Red Pepper Flakes' },
           
           // Fresh Basics
-          { id: 42, name: 'Garlic' },
-          { id: 43, name: 'Onion' },
-          { id: 44, name: 'Fresh Parsley' },
-          { id: 45, name: 'Fresh Basil' },
-          { id: 46, name: 'Lemon' },
-          { id: 47, name: 'Lime' },
+          { name: 'Garlic' },
+          { name: 'Onion' },
+          { name: 'Fresh Parsley' },
+          { name: 'Fresh Basil' },
+          { name: 'Lemon' },
           
           // Canned and Jarred Goods
-          { id: 48, name: 'Diced Tomatoes (canned)' },
-          { id: 49, name: 'Crushed Tomatoes (canned)' },
-          { id: 50, name: 'Tomato Paste' },
-          { id: 51, name: 'Chicken Broth' },
-          { id: 52, name: 'Vegetable Broth' },
-          { id: 53, name: 'Kidney Beans (canned)' },
-          { id: 54, name: 'Black Beans (canned)' },
-          { id: 55, name: 'Chickpeas (canned)' },
-          { id: 56, name: 'Canned Tuna' },
-          { id: 57, name: 'Canned Chicken' },
-          { id: 58, name: 'Pasta Sauce' },
+          { name: 'Diced Tomatoes (canned)' },
+          { name: 'Crushed Tomatoes (canned)' },
+          { name: 'Tomato Paste' },
+          { name: 'Chicken Broth' },
+          { name: 'Vegetable Broth' },
+          { name: 'Black Beans (canned)' },
+          { name: 'Chickpeas (canned)' },
           
           // Dairy and Refrigerated
-          { id: 59, name: 'Milk' },
-          { id: 60, name: 'Almond Milk' },
-          { id: 61, name: 'Butter' },
-          { id: 62, name: 'Margarine' },
-          { id: 63, name: 'Eggs' },
-          { id: 64, name: 'Cheddar Cheese' },
-          { id: 65, name: 'Mozzarella Cheese' },
-          { id: 66, name: 'Parmesan Cheese' },
-          { id: 67, name: 'Cream Cheese' },
-          { id: 68, name: 'Sour Cream' },
-          { id: 69, name: 'Plain Yogurt' },
-          { id: 70, name: 'Greek Yogurt' },
-          { id: 71, name: 'Heavy Cream' },
+          { name: 'Milk' },
+          { name: 'Butter' },
+          { name: 'Eggs' },
+          { name: 'Cheddar Cheese' },
+          { name: 'Mozzarella Cheese' },
+          { name: 'Parmesan Cheese' },
+          { name: 'Sour Cream' },
+          { name: 'Heavy Cream' },
           
           // Proteins
-          { id: 72, name: 'Chicken Breast' },
-          { id: 73, name: 'Chicken Thighs' },
-          { id: 74, name: 'Ground Beef' },
-          { id: 75, name: 'Ground Turkey' },
-          { id: 76, name: 'Italian Sausage' },
-          { id: 77, name: 'Bacon' },
-          { id: 78, name: 'Pork Chops' },
-          { id: 79, name: 'Salmon Fillet' },
-          { id: 80, name: 'Shrimp' },
-          { id: 81, name: 'Peanut Butter' },
-          { id: 82, name: 'Almond Butter' },
+          { name: 'Chicken Breast' },
+          { name: 'Ground Beef' },
+          { name: 'Bacon' },
+          { name: 'Salmon Fillet' },
+          { name: 'Shrimp' },
           
-          // Additional Common Items
-          { id: 83, name: 'Tomato' },
-          { id: 84, name: 'Bell Pepper' },
-          { id: 85, name: 'Carrot' },
-          { id: 86, name: 'Celery' },
-          { id: 87, name: 'Spinach' },
-          { id: 88, name: 'Broccoli' },
-          { id: 89, name: 'Mushrooms' },
-          { id: 90, name: 'Zucchini' },
-          { id: 91, name: 'Fresh Ginger' },
-          { id: 92, name: 'Jalapeño' },
-          { id: 93, name: 'Cilantro' },
-          { id: 94, name: 'Green Onion' },
-          { id: 95, name: 'Worcestershire Sauce' },
-          { id: 96, name: 'Fish Sauce' },
-          { id: 97, name: 'Sesame Oil' },
-          { id: 98, name: 'Coconut Milk' },
-          { id: 99, name: 'Pesto' },
-          { id: 100, name: 'Dijon Mustard' }
+          // Vegetables
+          { name: 'Tomato' },
+          { name: 'Bell Pepper' },
+          { name: 'Carrot' },
+          { name: 'Celery' },
+          { name: 'Spinach' },
+          { name: 'Broccoli' },
+          { name: 'Mushrooms' }
         ],
         recipes: [
           {
-            id: 101, name: 'Spaghetti Aglio e Olio', servings: 2, category: 'Pasta',
+            name: 'Spaghetti Aglio e Olio', servings: 2, category: 'Pasta',
             tags: ['Quick', 'Vegan', 'Classic'],
             ingredients: [
-              { ingredientId: 11, amount: '200', measurement: 'g' },        // Spaghetti
-              { ingredientId: 16, amount: '4', measurement: 'tbsp' },       // Olive Oil
-              { ingredientId: 42, amount: '3', measurement: 'cloves, thinly sliced' }, // Garlic
-              { ingredientId: 41, amount: '1/2', measurement: 'tsp' },      // Red Pepper Flakes
-              { ingredientId: 44, amount: '2', measurement: 'tbsp, chopped' }, // Fresh Parsley
-              { ingredientId: 5, amount: 'to taste', measurement: '' }      // Salt
+              { name: 'Spaghetti', amount: '200', measurement: 'g' },
+              { name: 'Olive Oil', amount: '4', measurement: 'tbsp' },
+              { name: 'Garlic', amount: '3', measurement: 'cloves, thinly sliced' },
+              { name: 'Red Pepper Flakes', amount: '1/2', measurement: 'tsp' },
+              { name: 'Fresh Parsley', amount: '2', measurement: 'tbsp, chopped' },
+              { name: 'Salt', amount: 'to taste', measurement: '' }
             ],
             instructions: [
               {
@@ -3089,16 +3085,16 @@
             notes: 'For extra flavor, add a splash of white wine with the garlic. Ensure pasta water is well-salted like the sea!'
           },
           {
-            id: 102, name: 'Simple Lemon Herb Chicken', servings: 4, category: 'Main Course',
+            name: 'Simple Lemon Herb Chicken', servings: 4, category: 'Main Course',
             tags: ['Dinner', 'Healthy'],
             ingredients: [
-              { ingredientId: 72, amount: '4', measurement: 'boneless, skinless breasts' }, // Chicken Breast
-              { ingredientId: 46, amount: '1', measurement: '' },                           // Lemon
-              { ingredientId: 16, amount: '2', measurement: 'tbsp' },                       // Olive Oil
-              { ingredientId: 42, amount: '2', measurement: 'cloves, minced' },            // Garlic
-              { ingredientId: 44, amount: '1', measurement: 'tbsp, chopped' },             // Fresh Parsley
-              { ingredientId: 5, amount: '1/2', measurement: 'tsp' },                      // Salt
-              { ingredientId: 6, amount: '1/4', measurement: 'tsp' }                       // Black Pepper
+              { name: 'Chicken Breast', amount: '4', measurement: 'boneless, skinless breasts' },
+              { name: 'Lemon', amount: '1', measurement: '' },
+              { name: 'Olive Oil', amount: '2', measurement: 'tbsp' },
+              { name: 'Garlic', amount: '2', measurement: 'cloves, minced' },
+              { name: 'Fresh Parsley', amount: '1', measurement: 'tbsp, chopped' },
+              { name: 'Salt', amount: '1/2', measurement: 'tsp' },
+              { name: 'Black Pepper', amount: '1/4', measurement: 'tsp' }
             ],
             instructions: [
               {
