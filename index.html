@@ -1746,6 +1746,195 @@
   }
 
   // =====================================================
+  // SHOPPING LIST RENDERER CLASS
+  // =====================================================
+  class ShoppingListRenderer {
+    constructor(app) {
+      this.app = app;
+    }
+
+    render() {
+      const view = this.app.cloneTemplate('shopping-list-template');
+      const list = view.querySelector('[data-list-target="shopping-list"]');
+      
+      if (this.app.state.shoppingList.length === 0) {
+        list.innerHTML = `<li class="empty-state"><p>Your shopping list is empty.</p></li>`;
+      } else {
+        const itemsByRecipe = this._groupItemsByRecipe();
+        this._renderRecipeGroups(list, itemsByRecipe);
+      }
+      
+      this.app.root.appendChild(view);
+    }
+
+    _groupItemsByRecipe() {
+      const itemsByRecipe = {};
+      
+      this.app.state.shoppingList
+        .map(item => ({ 
+          ...item, 
+          ingredient: this.app.state.ingredients.find(i => i.id === item.ingredientId) 
+        }))
+        .filter(item => item.ingredient)
+        .forEach(item => {
+          if (!itemsByRecipe[item.recipeName]) {
+            itemsByRecipe[item.recipeName] = [];
+          }
+          itemsByRecipe[item.recipeName].push(item);
+        });
+      
+      return itemsByRecipe;
+    }
+
+    _renderRecipeGroups(list, itemsByRecipe) {
+      Object.keys(itemsByRecipe).sort().forEach(recipeName => {
+        const recipeSection = this._createRecipeSection(recipeName, itemsByRecipe[recipeName]);
+        list.appendChild(recipeSection);
+      });
+    }
+
+    _createRecipeSection(recipeName, items) {
+      const recipeSection = document.createElement('li');
+      recipeSection.style.marginBottom = 'var(--spacing-lg)';
+      
+      const recipeHeader = document.createElement('h3');
+      recipeHeader.textContent = recipeName;
+      recipeHeader.style.color = 'var(--color-primary)';
+      recipeHeader.style.marginBottom = 'var(--spacing-sm)';
+      recipeSection.appendChild(recipeHeader);
+      
+      const recipeList = document.createElement('ul');
+      recipeList.style.listStyle = 'none';
+      recipeList.style.padding = '0';
+      
+      items
+        .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
+        .forEach(item => {
+          const itemEl = this._createShoppingItem(item);
+          recipeList.appendChild(itemEl);
+        });
+      
+      recipeSection.appendChild(recipeList);
+      return recipeSection;
+    }
+
+    _createShoppingItem(item) {
+      const itemEl = this.app.cloneTemplate('shopping-list-item-template').firstElementChild;
+      itemEl.querySelector('[data-text="name"]').textContent = item.ingredient.name;
+      itemEl.querySelector('[data-text="amount"]').textContent = `${item.amount} ${item.measurement || ''}`.trim();
+      
+      if (item.checked) {
+        itemEl.classList.add('checked');
+      }
+      
+      this._setupToggleButton(itemEl, item);
+      
+      // Make whole item clickable
+      itemEl.dataset.action = 'toggle-shopping-item';
+      itemEl.dataset.id = item.ingredientId;
+      itemEl.style.cursor = 'pointer';
+      
+      return itemEl;
+    }
+
+    _setupToggleButton(itemEl, item) {
+      const toggleBtn = itemEl.querySelector('button');
+      toggleBtn.dataset.action = 'toggle-shopping-item';
+      toggleBtn.dataset.id = item.ingredientId;
+      toggleBtn.setAttribute('aria-label', 
+        item.checked ? `Uncheck ${item.ingredient.name}` : `Check ${item.ingredient.name}`
+      );
+      
+      if (item.checked) {
+        toggleBtn.className = 'icon-button success';
+        toggleBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+          </svg>
+        `;
+      } else {
+        toggleBtn.className = 'icon-button primary';
+        toggleBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+          </svg>
+        `;
+      }
+    }
+  }
+
+  // =====================================================
+  // EVENT ACTIONS CLASS
+  // =====================================================
+  class EventActions {
+    constructor(app) {
+      this.app = app;
+    }
+
+    toggleSection(target, event) {
+      const section = target.dataset.section;
+      const recipeId = this.app.currentState.id;
+      const sectionEl = this.app.root.querySelector(`[data-collapsible="${section}"]`);
+      const isCollapsing = !sectionEl.classList.contains('collapsed');
+      sectionEl.classList.toggle('collapsed');
+      target.setAttribute('aria-expanded', !isCollapsing);
+      
+      // Save collapse state
+      if (!this.app.uiState.collapsedSections[recipeId]) {
+        this.app.uiState.collapsedSections[recipeId] = {};
+      }
+      this.app.uiState.collapsedSections[recipeId][section] = isCollapsing;
+      this.app.saveData();
+    }
+
+    toggleShoppingItem(target, id) {
+      const ingredientId = parseInt(id);
+      const item = this.app.state.shoppingList.find(i => i.ingredientId === ingredientId);
+      if (!item) return;
+
+      item.checked = !item.checked;
+      this.app.saveData();
+      
+      this._updateShoppingItemUI(target, item);
+    }
+
+    _updateShoppingItemUI(target, item) {
+      const listItem = target.classList.contains('shopping-list-item') ? target : target.closest('.shopping-list-item');
+      const button = listItem ? listItem.querySelector('button') : target;
+      
+      if (item.checked) {
+        if (listItem) listItem.classList.add('checked');
+        if (button && button.tagName === 'BUTTON') {
+          button.classList.remove('primary');
+          button.classList.add('success');
+          button.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+            </svg>
+          `;
+        }
+      } else {
+        if (listItem) listItem.classList.remove('checked');
+        if (button && button.tagName === 'BUTTON') {
+          button.classList.remove('success');
+          button.classList.add('primary');
+          button.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+            </svg>
+          `;
+        }
+      }
+    }
+
+    closeModal(target, event) {
+      event.preventDefault();
+      const modal = target.closest('.modal-overlay');
+      if (modal) modal.remove();
+    }
+  }
+
+  // =====================================================
   // MAIN APPLICATION CLASS
   // =====================================================
   class DigitalPantryApp {
@@ -1768,6 +1957,8 @@
       this.toastManager = new ToastManager(document.getElementById('toast-notification'));
       this.themeManager = new ThemeManager(this.uiState);
       this.recipeRenderer = new RecipeRenderer(this);
+      this.shoppingListRenderer = new ShoppingListRenderer(this);
+      this.eventActions = new EventActions(this);
     }
 
     init() {
@@ -1894,68 +2085,13 @@
         },
         'delete-recipe': () => this.deleteRecipe(parseInt(id)),
         'delete-ingredient': () => this.deleteIngredient(parseInt(id), target),
-
         'add-to-shopping-list': () => this.addToShoppingList(target),
         'remove-from-shopping-list': () => this.removeFromShoppingList(parseInt(id), target),
         'clear-shopping-list': () => this.clearShoppingList(),
         'toggle-theme': () => this.toggleTheme(),
-        'close-modal': () => {
-          event.preventDefault();
-          const modal = target.closest('.modal-overlay');
-          if (modal) modal.remove();
-        },
-        'toggle-section': () => {
-          const section = target.dataset.section;
-          const recipeId = this.currentState.id;
-          const sectionEl = this.root.querySelector(`[data-collapsible="${section}"]`);
-          const isCollapsing = !sectionEl.classList.contains('collapsed');
-          sectionEl.classList.toggle('collapsed');
-          target.setAttribute('aria-expanded', !isCollapsing);
-          
-          // Save collapse state
-          if (!this.uiState.collapsedSections[recipeId]) {
-            this.uiState.collapsedSections[recipeId] = {};
-          }
-          this.uiState.collapsedSections[recipeId][section] = isCollapsing;
-          this.saveData();
-        },
-        'toggle-shopping-item': () => {
-          const ingredientId = parseInt(id);
-          const item = this.state.shoppingList.find(i => i.ingredientId === ingredientId);
-          if (item) {
-            item.checked = !item.checked;
-            this.saveData();
-            
-            // Find the list item and button (target might be the li or the button)
-            const listItem = target.classList.contains('shopping-list-item') ? target : target.closest('.shopping-list-item');
-            const button = listItem ? listItem.querySelector('button') : target;
-            
-            // Update UI
-            if (item.checked) {
-              if (listItem) listItem.classList.add('checked');
-              if (button && button.tagName === 'BUTTON') {
-                button.classList.remove('primary');
-                button.classList.add('success');
-                button.innerHTML = `
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
-                  </svg>
-                `;
-              }
-            } else {
-              if (listItem) listItem.classList.remove('checked');
-              if (button && button.tagName === 'BUTTON') {
-                button.classList.remove('success');
-                button.classList.add('primary');
-                button.innerHTML = `
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
-                  </svg>
-                `;
-              }
-            }
-          }
-        },
+        'close-modal': () => this.eventActions.closeModal(target, event),
+        'toggle-section': () => this.eventActions.toggleSection(target, event),
+        'toggle-shopping-item': () => this.eventActions.toggleShoppingItem(target, id),
         'remove-search-filter': () => this.removeSearchFilter(parseInt(id)),
         'filter-by-ingredient': () => this.filterByIngredient(parseInt(id)),
         'cooking-nav-next': () => this.navigateCookingStep(1),
@@ -2050,84 +2186,7 @@
 
 
     renderShoppingList() {
-      const view = this.cloneTemplate('shopping-list-template');
-      const list = view.querySelector('[data-list-target="shopping-list"]');
-      if (this.state.shoppingList.length === 0) {
-        list.innerHTML = `<li class="empty-state"><p>Your shopping list is empty.</p></li>`;
-      } else {
-        // Group items by recipe
-        const itemsByRecipe = {};
-        this.state.shoppingList
-          .map(item => ({ ...item, ingredient: this.state.ingredients.find(i => i.id === item.ingredientId) }))
-          .filter(item => item.ingredient)
-          .forEach(item => {
-            if (!itemsByRecipe[item.recipeName]) {
-              itemsByRecipe[item.recipeName] = [];
-            }
-            itemsByRecipe[item.recipeName].push(item);
-          });
-
-        // Render each recipe group
-        Object.keys(itemsByRecipe).sort().forEach(recipeName => {
-          const recipeSection = document.createElement('li');
-          recipeSection.style.marginBottom = 'var(--spacing-lg)';
-          
-          const recipeHeader = document.createElement('h3');
-          recipeHeader.textContent = recipeName;
-          recipeHeader.style.color = 'var(--color-primary)';
-          recipeHeader.style.marginBottom = 'var(--spacing-sm)';
-          recipeSection.appendChild(recipeHeader);
-          
-          const recipeList = document.createElement('ul');
-          recipeList.style.listStyle = 'none';
-          recipeList.style.padding = '0';
-          
-          itemsByRecipe[recipeName]
-            .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
-            .forEach(item => {
-              const itemEl = this.cloneTemplate('shopping-list-item-template').firstElementChild;
-              itemEl.querySelector('[data-text="name"]').textContent = item.ingredient.name;
-              itemEl.querySelector('[data-text="amount"]').textContent = `${item.amount} ${item.measurement || ''}`.trim();
-              
-              // Apply checked state
-              if (item.checked) {
-                itemEl.classList.add('checked');
-              }
-              
-              const toggleBtn = itemEl.querySelector('button');
-              toggleBtn.dataset.action = 'toggle-shopping-item';
-              toggleBtn.dataset.id = item.ingredientId;
-              toggleBtn.setAttribute('aria-label', item.checked ? `Uncheck ${item.ingredient.name}` : `Check ${item.ingredient.name}`);
-              
-              // Make whole item clickable
-              itemEl.dataset.action = 'toggle-shopping-item';
-              itemEl.dataset.id = item.ingredientId;
-              itemEl.style.cursor = 'pointer';
-              
-              if (item.checked) {
-                toggleBtn.className = 'icon-button success';
-                toggleBtn.innerHTML = `
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
-                  </svg>
-                `;
-              } else {
-                toggleBtn.className = 'icon-button primary';
-                toggleBtn.innerHTML = `
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
-                  </svg>
-                `;
-              }
-              
-              recipeList.appendChild(itemEl);
-            });
-          
-          recipeSection.appendChild(recipeList);
-          list.appendChild(recipeSection);
-        });
-      }
-      this.root.appendChild(view);
+      this.shoppingListRenderer.render();
     }
 
     // --- CRUD & LOGIC ---
