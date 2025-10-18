@@ -1474,9 +1474,15 @@
       
       // State keys
       VIEW: 'currentView',
-      UI_STATE: 'uiState',
       COOKING: 'cookingState',
-      FORM_DRAFT: 'recipeDraft'
+      FORM_DRAFT: 'recipeDraft',
+      
+      // UI State keys (granular)
+      THEME: 'theme',
+      COLLAPSED_SECTIONS: 'collapsedSections',
+      LAST_VIEWED_RECIPE: 'lastViewedRecipe',
+      FILTER_SETTINGS: 'filterSettings',
+      FILTER_PANEL_OPEN: 'filterPanelOpen'
     };
 
     static save(key, data) {
@@ -1513,18 +1519,18 @@
   // THEME MANAGER - Handles theme switching
   // =====================================================
   class ThemeManager {
-    constructor(uiState) {
-      this.uiState = uiState;
+    constructor(app) {
+      this.app = app;
     }
 
     init() {
-      const savedTheme = this.uiState.theme;
+      const savedTheme = this.app.uiState.theme;
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme = savedTheme || (prefersDark ? 'dark' : 'light');
       this.setTheme(theme);
 
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        if (!this.uiState.theme) {
+        if (!this.app.uiState.theme) {
           this.setTheme(e.matches ? 'dark' : 'light');
         }
       });
@@ -1532,11 +1538,12 @@
 
     setTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme);
-      this.uiState.theme = theme;
+      this.app.uiState.theme = theme;
+      this.app.saveTheme();
     }
 
     toggle() {
-      const newTheme = this.uiState.theme === 'dark' ? 'light' : 'dark';
+      const newTheme = this.app.uiState.theme === 'dark' ? 'light' : 'dark';
       this.setTheme(newTheme);
       return newTheme;
     }
@@ -1595,7 +1602,7 @@
 
       // Save last viewed recipe
       this.app.uiState.lastViewedRecipe = recipeName;
-      this.app.saveData();
+      this.app.saveLastViewedRecipe();
 
       const view = this.app.cloneTemplate('recipe-detail-template');
       this._populateRecipeInfo(view, recipe);
@@ -2013,7 +2020,7 @@
         this.app.uiState.collapsedSections[recipeName] = {};
       }
       this.app.uiState.collapsedSections[recipeName][section] = isCollapsing;
-      this.app.saveUIState(); // Only save UI state
+      this.app.saveCollapsedSections();
     }
 
     toggleShoppingItem(target, nameOrId) {
@@ -2086,7 +2093,7 @@
       
       // Initialize managers
       this.toastManager = new ToastManager(document.getElementById('toast-notification'));
-      this.themeManager = new ThemeManager(this.uiState);
+      this.themeManager = new ThemeManager(this);
       this.recipeRenderer = new RecipeRenderer(this);
       this.shoppingListRenderer = new ShoppingListRenderer(this);
       this.eventActions = new EventActions(this);
@@ -2127,10 +2134,20 @@
     }
 
     loadUIState() {
-      const loadedUIState = StorageManager.load(StorageManager.KEYS.UI_STATE);
-      if (loadedUIState) {
-        this.uiState = loadedUIState;
-      }
+      // Load each UI state component from separate keys
+      const theme = StorageManager.load(StorageManager.KEYS.THEME, 'dark');
+      const collapsedSections = StorageManager.load(StorageManager.KEYS.COLLAPSED_SECTIONS, {});
+      const lastViewedRecipe = StorageManager.load(StorageManager.KEYS.LAST_VIEWED_RECIPE, null);
+      const filterSettings = StorageManager.load(StorageManager.KEYS.FILTER_SETTINGS, {});
+      const filterPanelOpen = StorageManager.load(StorageManager.KEYS.FILTER_PANEL_OPEN, false);
+      
+      this.uiState = {
+        theme,
+        collapsedSections,
+        lastViewedRecipe,
+        filterSettings,
+        filterPanelOpen
+      };
     }
 
     loadCookingState() {
@@ -2149,7 +2166,13 @@
       
       // Save state keys
       StorageManager.save(StorageManager.KEYS.VIEW, this.currentState);
-      StorageManager.save(StorageManager.KEYS.UI_STATE, this.uiState);
+      
+      // Save UI state components separately
+      this.saveTheme();
+      this.saveCollapsedSections();
+      this.saveLastViewedRecipe();
+      this.saveFilterSettings();
+      this.saveFilterPanelOpen();
       
       // Save or remove cooking state
       if (this.currentState.view === 'cooking') {
@@ -2172,8 +2195,24 @@
       StorageManager.save(StorageManager.KEYS.SHOPPING_LIST, this.state.shoppingList);
     }
 
-    saveUIState() {
-      StorageManager.save(StorageManager.KEYS.UI_STATE, this.uiState);
+    saveTheme() {
+      StorageManager.save(StorageManager.KEYS.THEME, this.uiState.theme);
+    }
+
+    saveCollapsedSections() {
+      StorageManager.save(StorageManager.KEYS.COLLAPSED_SECTIONS, this.uiState.collapsedSections);
+    }
+
+    saveLastViewedRecipe() {
+      StorageManager.save(StorageManager.KEYS.LAST_VIEWED_RECIPE, this.uiState.lastViewedRecipe);
+    }
+
+    saveFilterSettings() {
+      StorageManager.save(StorageManager.KEYS.FILTER_SETTINGS, this.uiState.filterSettings);
+    }
+
+    saveFilterPanelOpen() {
+      StorageManager.save(StorageManager.KEYS.FILTER_PANEL_OPEN, this.uiState.filterPanelOpen);
     }
 
     saveViewState() {
@@ -2549,13 +2588,22 @@
           break;
 
         case 'uiState':
+          // Reset all UI state components
           this.uiState = {
             theme: this.uiState.theme, // Keep theme preference
-            filterSettings: { activeFilters: [] },
-            collapsedSections: {}
+            collapsedSections: {},
+            lastViewedRecipe: null,
+            filterSettings: {},
+            filterPanelOpen: false
           };
           this.activeFilters = [];
-          StorageManager.save(StorageManager.KEYS.UI_STATE, this.uiState);
+          
+          // Save each UI state component separately
+          this.saveCollapsedSections();
+          this.saveLastViewedRecipe();
+          this.saveFilterSettings();
+          this.saveFilterPanelOpen();
+          
           this.navigateToView('recipes');
           this.showToast('Filters and preferences reset.');
           break;
@@ -2570,11 +2618,13 @@
           this.state = this.getInitialData();
           this.uiState = {
             theme: this.uiState.theme, // Keep theme preference
-            filterSettings: { activeFilters: [] },
-            collapsedSections: {}
+            collapsedSections: {},
+            lastViewedRecipe: null,
+            filterSettings: {},
+            filterPanelOpen: false
           };
           this.activeFilters = [];
-          this.currentState = { view: 'recipes', id: null };
+          this.currentState = { view: 'recipes', recipeName: null };
           
           StorageManager.remove(StorageManager.KEYS.FORM_DRAFT);
           StorageManager.remove(StorageManager.KEYS.COOKING);
