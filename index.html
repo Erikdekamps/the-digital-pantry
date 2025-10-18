@@ -552,11 +552,11 @@
       margin-bottom: var(--spacing-sm);
 
       &.ingredient-row {
-        grid-template-columns: 2fr 1fr 1fr auto;
-      }
-
-      &.instruction-row {
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 2fr 1fr 1fr;
+        
+        @media (max-width: 768px) {
+          grid-template-columns: 1fr;
+        }
       }
     }
 
@@ -1339,12 +1339,18 @@
       <fieldset>
         <legend>Ingredients</legend>
         <div data-list-target="ingredients"></div>
-        <button type="button" class="button secondary" data-action="form-add-ingredient-row">Add Ingredient</button>
+        <div style="display: flex; gap: var(--spacing-sm);">
+          <button type="button" class="button secondary" data-action="form-add-ingredient-row">Add Ingredient</button>
+          <button type="button" class="button" data-action="form-remove-last-ingredient" aria-label="Remove Last Ingredient" title="Remove Last Ingredient">Remove Ingredient</button>
+        </div>
       </fieldset>
       <fieldset>
         <legend>Instructions</legend>
         <div data-list-target="instruction-categories"></div>
-        <button type="button" class="button secondary" data-action="form-add-instruction-category">Add Category</button>
+        <div style="display: flex; gap: var(--spacing-sm);">
+          <button type="button" class="button secondary" data-action="form-add-instruction-category">Add Category</button>
+          <button type="button" class="button" data-action="form-remove-last-category" aria-label="Remove Last Category" title="Remove Last Category">Remove Category</button>
+        </div>
       </fieldset>
       <fieldset>
         <legend>Notes</legend>
@@ -1376,22 +1382,12 @@
     </div>
     <input type="text" name="amount" aria-label="Amount" placeholder="e.g. 2" required>
     <input type="text" name="measurement" aria-label="Measurement Unit" placeholder="e.g. cups, tbsp">
-    <button type="button" class="button danger icon-button" data-action="form-remove-row" aria-label="Remove Ingredient Row">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
-      </svg>
-    </button>
   </div>
 </template>
 
 <template id="instruction-form-row-template">
   <div class="dynamic-list-item instruction-row">
     <textarea name="instruction-step" aria-label="Instruction Step" rows="2" placeholder="Describe this step..." required></textarea>
-    <button type="button" class="button danger icon-button" data-action="form-remove-row" aria-label="Remove Instruction Step">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
-      </svg>
-    </button>
   </div>
 </template>
 
@@ -2538,14 +2534,13 @@
       let ingredients = StorageManager.load(StorageManager.KEYS.INGREDIENTS, defaultData.ingredients);
       const shoppingList = StorageManager.load(StorageManager.KEYS.SHOPPING_LIST, defaultData.shoppingList);
       
-      // Migration: Add IDs to ingredients that don't have them
+      // Migration: Remove IDs from ingredients (name is the unique identifier)
       let needsSave = false;
-      let maxId = Math.max(0, ...ingredients.filter(i => i.id).map(i => i.id));
-      
       ingredients = ingredients.map(ingredient => {
-        if (!ingredient.id) {
+        if (ingredient.id) {
           needsSave = true;
-          return { ...ingredient, id: ++maxId };
+          const { id, ...ingredientWithoutId } = ingredient;
+          return ingredientWithoutId;
         }
         return ingredient;
       });
@@ -2556,7 +2551,7 @@
         shoppingList
       };
       
-      // Save if we added IDs
+      // Save if we removed IDs
       if (needsSave) {
         this.saveData();
       }
@@ -2723,9 +2718,9 @@
           this.navigateToView(view, name || null);
         },
         'delete-recipe': () => this.deleteRecipe(name),
-        'delete-ingredient': () => this.deleteIngredient(parseInt(id), target),
-        'delete-ingredient-from-modal': () => this.deleteIngredientFromModal(parseInt(id)),
-        'edit-ingredient': () => this.showEditIngredientModal(parseInt(id)),
+        'delete-ingredient': () => this.deleteIngredient(name, target),
+        'delete-ingredient-from-modal': () => this.deleteIngredientFromModal(name),
+        'edit-ingredient': () => this.showEditIngredientModal(name),
         'add-to-shopping-list': () => this.addToShoppingList(target),
         'remove-from-shopping-list': () => this.removeFromShoppingList(name, target),
         'clear-shopping-list': () => this.clearShoppingList(),
@@ -2742,10 +2737,10 @@
         'cooking-nav-prev': () => this.navigateCookingStep(-1),
         'exit-cooking': () => this.navigateToView('recipes', this.cookingState.recipeName),
         'form-add-ingredient-row': () => this.addIngredientRowToForm(),
-        'form-remove-row': () => target.closest('.dynamic-list-item').remove(),
+        'form-remove-last-ingredient': () => this.removeLastIngredient(),
         'form-add-instruction-row': () => this.addInstructionRowToForm(),
         'form-add-instruction-category': () => this.addInstructionCategoryToForm(),
-        'form-remove-instruction-category': () => target.closest('.instruction-category').remove()
+        'form-remove-last-category': () => this.removeLastCategory()
       };
 
       if (actions[action]) {
@@ -3018,9 +3013,8 @@
         return;
       }
       
-      // Build ingredient object
+      // Build ingredient object (no ID needed, name is the unique identifier)
       const newIngredient = { 
-        id: Date.now(), 
         name 
       };
       
@@ -3052,8 +3046,8 @@
       this.showToast('Ingredient added.');
     }
 
-    showEditIngredientModal(ingredientId) {
-      const ingredient = this.state.ingredients.find(i => i.id === ingredientId);
+    showEditIngredientModal(ingredientName) {
+      const ingredient = this.state.ingredients.find(i => i.name === ingredientName);
       if (!ingredient) {
         return;
       }
@@ -3065,14 +3059,14 @@
       const modal = document.body.querySelector('.modal-overlay:last-child');
       const form = modal.querySelector('form');
       
-      // Populate form with current values
-      form.querySelector('[name="ingredientId"]').value = ingredient.id;
+      // Populate form with current values (store original name to identify ingredient on save)
+      form.querySelector('[name="ingredientId"]').value = ingredient.name;
       form.querySelector('[name="name"]').value = ingredient.name;
       
-      // Set the ingredient ID on the delete button
+      // Set the ingredient name on the delete button
       const deleteBtn = modal.querySelector('[data-action="delete-ingredient-from-modal"]');
       if (deleteBtn) {
-        deleteBtn.dataset.id = ingredient.id;
+        deleteBtn.dataset.name = ingredient.name;
       }
       
       if (ingredient.nutrition) {
@@ -3088,14 +3082,14 @@
 
     updateIngredientFromModal(form) {
       const formData = new FormData(form);
-      const ingredientId = parseInt(formData.get('ingredientId'));
+      const originalName = formData.get('ingredientId'); // This stores the original name
       const name = formData.get('name').trim();
       
       if (!name) {
         return;
       }
       
-      const ingredient = this.state.ingredients.find(i => i.id === ingredientId);
+      const ingredient = this.state.ingredients.find(i => i.name === originalName);
       if (!ingredient) {
         this.showToast('Ingredient not found.', 'error');
         return;
@@ -3103,7 +3097,7 @@
       
       // Check if name conflicts with another ingredient
       const existingWithName = this.state.ingredients.find(i => 
-        i.id !== ingredientId && i.name.toLowerCase() === name.toLowerCase()
+        i.name !== originalName && i.name.toLowerCase() === name.toLowerCase()
       );
       
       if (existingWithName) {
@@ -3263,8 +3257,8 @@
       }
     }
 
-    deleteIngredient(id, target) {
-      const ingredient = this.state.ingredients.find(i => i.id === id);
+    deleteIngredient(ingredientName, target) {
+      const ingredient = this.state.ingredients.find(i => i.name === ingredientName);
       if (!ingredient) return;
       
       const isUsed = this.state.recipes.some(recipe => 
@@ -3274,14 +3268,14 @@
         this.showToast('Cannot delete: Ingredient is used in a recipe.', 'error');
         return;
       }
-      this.state.ingredients = this.state.ingredients.filter(i => i.id !== id);
+      this.state.ingredients = this.state.ingredients.filter(i => i.name !== ingredientName);
       this.saveData();
       this.navigateToView('ingredients');
       this.showToast('Ingredient deleted.');
     }
 
-    deleteIngredientFromModal(id) {
-      const ingredient = this.state.ingredients.find(i => i.id === id);
+    deleteIngredientFromModal(ingredientName) {
+      const ingredient = this.state.ingredients.find(i => i.name === ingredientName);
       if (!ingredient) return;
       
       const isUsed = this.state.recipes.some(recipe => 
@@ -3297,7 +3291,7 @@
         return;
       }
       
-      this.state.ingredients = this.state.ingredients.filter(i => i.id !== id);
+      this.state.ingredients = this.state.ingredients.filter(i => i.name !== ingredientName);
       this.saveData();
       
       // Close the modal
@@ -3641,7 +3635,7 @@
 
     createIngredientListItem(ing) {
       const itemEl = this.cloneTemplate('ingredient-item-template').firstElementChild;
-      itemEl.dataset.id = ing.id;
+      itemEl.dataset.name = ing.name;
       
       const nameEl = itemEl.querySelector('[data-text="name"]');
       
@@ -3691,7 +3685,7 @@
       const editBtn = document.createElement('button');
       editBtn.className = 'icon-button';
       editBtn.dataset.action = 'edit-ingredient';
-      editBtn.dataset.id = ing.id;
+      editBtn.dataset.name = ing.name;
       editBtn.title = 'Edit ingredient';
       editBtn.setAttribute('aria-label', `Edit ${ing.name}`);
       editBtn.innerHTML = `
@@ -3724,6 +3718,35 @@
       container.appendChild(row);
     }
 
+    removeLastIngredient() {
+      const container = this.root.querySelector('[data-list-target="ingredients"]');
+      if (!container) return;
+      
+      const rows = container.querySelectorAll('.ingredient-row');
+      if (rows.length === 0) {
+        this.showToast('No ingredients to remove.', 'error');
+        return;
+      }
+      
+      rows[rows.length - 1].remove();
+      this.showToast('Ingredient removed.');
+    }
+
+    removeLastCategory() {
+      const categoriesContainer = this.root.querySelector('[data-list-target="instruction-categories"]');
+      if (!categoriesContainer) return;
+      
+      const categories = categoriesContainer.querySelectorAll('.instruction-category');
+      if (categories.length === 0) {
+        this.showToast('No categories to remove.', 'error');
+        return;
+      }
+      
+      // Remove the last category
+      categories[categories.length - 1].remove();
+      this.showToast('Category removed.');
+    }
+
     addInstructionCategoryToForm(container = null, data = {category: '', steps: ['']}) {
       container = container || this.root.querySelector('[data-list-target="instruction-categories"]');
       
@@ -3741,20 +3764,7 @@
       categoryInput.value = data.category || '';
       categoryInput.style.cssText = 'flex: 1; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background-color: var(--color-background); color: var(--color-on-background);';
       
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'icon-button danger';
-      removeBtn.dataset.action = 'form-remove-instruction-category';
-      removeBtn.title = 'Remove category';
-      removeBtn.setAttribute('aria-label', 'Remove instruction category');
-      removeBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
-        </svg>
-      `;
-      
       categoryHeader.appendChild(categoryInput);
-      categoryHeader.appendChild(removeBtn);
       categoryDiv.appendChild(categoryHeader);
       
       const stepsContainer = document.createElement('div');
@@ -3975,81 +3985,81 @@
       return {
         ingredients: [
           // Pantry Staples - Basics (nutrition per 100g)
-          { id: 1, name: 'All-Purpose Flour', nutrition: { calories: 364, protein: 10, carbs: 76, fat: 1 } },
-          { id: 2, name: 'Granulated Sugar', nutrition: { calories: 387, protein: 0, carbs: 100, fat: 0 } },
-          { id: 3, name: 'Brown Sugar', nutrition: { calories: 380, protein: 0, carbs: 98, fat: 0 } },
-          { id: 4, name: 'Salt', nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 } },
-          { id: 5, name: 'Black Pepper', nutrition: { calories: 251, protein: 10, carbs: 64, fat: 3 } },
-          { id: 6, name: 'Baking Soda', nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 } },
-          { id: 7, name: 'Baking Powder', nutrition: { calories: 53, protein: 0, carbs: 28, fat: 0 } },
-          { id: 8, name: 'White Rice', nutrition: { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 } },
-          { id: 9, name: 'Spaghetti', nutrition: { calories: 371, protein: 13, carbs: 74, fat: 1.5 } },
-          { id: 10, name: 'Penne Pasta', nutrition: { calories: 371, protein: 13, carbs: 74, fat: 1.5 } },
-          { id: 11, name: 'Bread', nutrition: { calories: 265, protein: 9, carbs: 49, fat: 3.2 } },
-          { id: 12, name: 'Potatoes', nutrition: { calories: 77, protein: 2, carbs: 17, fat: 0.1 } },
+          { name: 'All-Purpose Flour', nutrition: { calories: 364, protein: 10, carbs: 76, fat: 1 } },
+          { name: 'Granulated Sugar', nutrition: { calories: 387, protein: 0, carbs: 100, fat: 0 } },
+          { name: 'Brown Sugar', nutrition: { calories: 380, protein: 0, carbs: 98, fat: 0 } },
+          { name: 'Salt', nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 } },
+          { name: 'Black Pepper', nutrition: { calories: 251, protein: 10, carbs: 64, fat: 3 } },
+          { name: 'Baking Soda', nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 } },
+          { name: 'Baking Powder', nutrition: { calories: 53, protein: 0, carbs: 28, fat: 0 } },
+          { name: 'White Rice', nutrition: { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 } },
+          { name: 'Spaghetti', nutrition: { calories: 371, protein: 13, carbs: 74, fat: 1.5 } },
+          { name: 'Penne Pasta', nutrition: { calories: 371, protein: 13, carbs: 74, fat: 1.5 } },
+          { name: 'Bread', nutrition: { calories: 265, protein: 9, carbs: 49, fat: 3.2 } },
+          { name: 'Potatoes', nutrition: { calories: 77, protein: 2, carbs: 17, fat: 0.1 } },
           
           // Oils and Condiments
-          { id: 13, name: 'Olive Oil', nutrition: { calories: 884, protein: 0, carbs: 0, fat: 100 } },
-          { id: 14, name: 'Vegetable Oil', nutrition: { calories: 884, protein: 0, carbs: 0, fat: 100 } },
-          { id: 15, name: 'Soy Sauce', nutrition: { calories: 53, protein: 5, carbs: 5, fat: 0 } },
-          { id: 16, name: 'Ketchup', nutrition: { calories: 101, protein: 1, carbs: 25, fat: 0 } },
-          { id: 17, name: 'Mustard', nutrition: { calories: 60, protein: 3.7, carbs: 5, fat: 3.3 } },
-          { id: 18, name: 'Mayonnaise', nutrition: { calories: 680, protein: 1, carbs: 1, fat: 75 } },
-          { id: 19, name: 'Honey', nutrition: { calories: 304, protein: 0.3, carbs: 82, fat: 0 } },
-          { id: 20, name: 'Hot Sauce', nutrition: { calories: 12, protein: 0.5, carbs: 2, fat: 0.2 } },
+          { name: 'Olive Oil', nutrition: { calories: 884, protein: 0, carbs: 0, fat: 100 } },
+          { name: 'Vegetable Oil', nutrition: { calories: 884, protein: 0, carbs: 0, fat: 100 } },
+          { name: 'Soy Sauce', nutrition: { calories: 53, protein: 5, carbs: 5, fat: 0 } },
+          { name: 'Ketchup', nutrition: { calories: 101, protein: 1, carbs: 25, fat: 0 } },
+          { name: 'Mustard', nutrition: { calories: 60, protein: 3.7, carbs: 5, fat: 3.3 } },
+          { name: 'Mayonnaise', nutrition: { calories: 680, protein: 1, carbs: 1, fat: 75 } },
+          { name: 'Honey', nutrition: { calories: 304, protein: 0.3, carbs: 82, fat: 0 } },
+          { name: 'Hot Sauce', nutrition: { calories: 12, protein: 0.5, carbs: 2, fat: 0.2 } },
           
           // Herbs and Spices
-          { id: 21, name: 'Garlic Powder', nutrition: { calories: 331, protein: 17, carbs: 72, fat: 0.7 } },
-          { id: 22, name: 'Onion Powder', nutrition: { calories: 341, protein: 9, carbs: 79, fat: 1 } },
-          { id: 23, name: 'Cumin', nutrition: { calories: 375, protein: 18, carbs: 44, fat: 22 } },
-          { id: 24, name: 'Paprika', nutrition: { calories: 282, protein: 14, carbs: 54, fat: 13 } },
-          { id: 25, name: 'Chili Powder', nutrition: { calories: 282, protein: 13, carbs: 50, fat: 14 } },
-          { id: 26, name: 'Dried Oregano', nutrition: { calories: 265, protein: 9, carbs: 69, fat: 4 } },
-          { id: 27, name: 'Dried Basil', nutrition: { calories: 233, protein: 23, carbs: 48, fat: 4 } },
-          { id: 28, name: 'Cinnamon', nutrition: { calories: 247, protein: 4, carbs: 81, fat: 1 } },
-          { id: 29, name: 'Red Pepper Flakes', nutrition: { calories: 318, protein: 12, carbs: 57, fat: 17 } },
+          { name: 'Garlic Powder', nutrition: { calories: 331, protein: 17, carbs: 72, fat: 0.7 } },
+          { name: 'Onion Powder', nutrition: { calories: 341, protein: 9, carbs: 79, fat: 1 } },
+          { name: 'Cumin', nutrition: { calories: 375, protein: 18, carbs: 44, fat: 22 } },
+          { name: 'Paprika', nutrition: { calories: 282, protein: 14, carbs: 54, fat: 13 } },
+          { name: 'Chili Powder', nutrition: { calories: 282, protein: 13, carbs: 50, fat: 14 } },
+          { name: 'Dried Oregano', nutrition: { calories: 265, protein: 9, carbs: 69, fat: 4 } },
+          { name: 'Dried Basil', nutrition: { calories: 233, protein: 23, carbs: 48, fat: 4 } },
+          { name: 'Cinnamon', nutrition: { calories: 247, protein: 4, carbs: 81, fat: 1 } },
+          { name: 'Red Pepper Flakes', nutrition: { calories: 318, protein: 12, carbs: 57, fat: 17 } },
           
           // Fresh Basics
-          { id: 30, name: 'Garlic', nutrition: { calories: 149, protein: 6, carbs: 33, fat: 0.5 } },
-          { id: 31, name: 'Onion', nutrition: { calories: 40, protein: 1.1, carbs: 9, fat: 0.1 } },
-          { id: 32, name: 'Fresh Parsley', nutrition: { calories: 36, protein: 3, carbs: 6, fat: 0.8 } },
-          { id: 33, name: 'Fresh Basil', nutrition: { calories: 23, protein: 3, carbs: 3, fat: 0.6 } },
-          { id: 34, name: 'Lemon', nutrition: { calories: 29, protein: 1.1, carbs: 9, fat: 0.3 } },
+          { name: 'Garlic', nutrition: { calories: 149, protein: 6, carbs: 33, fat: 0.5 } },
+          { name: 'Onion', nutrition: { calories: 40, protein: 1.1, carbs: 9, fat: 0.1 } },
+          { name: 'Fresh Parsley', nutrition: { calories: 36, protein: 3, carbs: 6, fat: 0.8 } },
+          { name: 'Fresh Basil', nutrition: { calories: 23, protein: 3, carbs: 3, fat: 0.6 } },
+          { name: 'Lemon', nutrition: { calories: 29, protein: 1.1, carbs: 9, fat: 0.3 } },
           
           // Canned and Jarred Goods
-          { id: 35, name: 'Diced Tomatoes (canned)', nutrition: { calories: 32, protein: 1.6, carbs: 7, fat: 0.2 } },
-          { id: 36, name: 'Crushed Tomatoes (canned)', nutrition: { calories: 32, protein: 1.6, carbs: 7, fat: 0.2 } },
-          { id: 37, name: 'Tomato Paste', nutrition: { calories: 82, protein: 4, carbs: 19, fat: 0.5 } },
-          { id: 38, name: 'Chicken Broth', nutrition: { calories: 4, protein: 0.5, carbs: 0.4, fat: 0.1 } },
-          { id: 39, name: 'Vegetable Broth', nutrition: { calories: 4, protein: 0.4, carbs: 0.5, fat: 0 } },
-          { id: 40, name: 'Black Beans (canned)', nutrition: { calories: 91, protein: 6, carbs: 16, fat: 0.3 } },
-          { id: 41, name: 'Chickpeas (canned)', nutrition: { calories: 164, protein: 9, carbs: 27, fat: 3 } },
+          { name: 'Diced Tomatoes (canned)', nutrition: { calories: 32, protein: 1.6, carbs: 7, fat: 0.2 } },
+          { name: 'Crushed Tomatoes (canned)', nutrition: { calories: 32, protein: 1.6, carbs: 7, fat: 0.2 } },
+          { name: 'Tomato Paste', nutrition: { calories: 82, protein: 4, carbs: 19, fat: 0.5 } },
+          { name: 'Chicken Broth', nutrition: { calories: 4, protein: 0.5, carbs: 0.4, fat: 0.1 } },
+          { name: 'Vegetable Broth', nutrition: { calories: 4, protein: 0.4, carbs: 0.5, fat: 0 } },
+          { name: 'Black Beans (canned)', nutrition: { calories: 91, protein: 6, carbs: 16, fat: 0.3 } },
+          { name: 'Chickpeas (canned)', nutrition: { calories: 164, protein: 9, carbs: 27, fat: 3 } },
           
           // Dairy and Refrigerated
-          { id: 42, name: 'Milk', nutrition: { calories: 42, protein: 3.4, carbs: 5, fat: 1 } },
-          { id: 43, name: 'Butter', nutrition: { calories: 717, protein: 0.9, carbs: 0.1, fat: 81 } },
-          { id: 44, name: 'Eggs', nutrition: { calories: 143, protein: 13, carbs: 1, fat: 10 } },
-          { id: 45, name: 'Cheddar Cheese', nutrition: { calories: 403, protein: 25, carbs: 1.3, fat: 33 } },
-          { id: 46, name: 'Mozzarella Cheese', nutrition: { calories: 280, protein: 28, carbs: 3, fat: 17 } },
-          { id: 47, name: 'Parmesan Cheese', nutrition: { calories: 431, protein: 38, carbs: 4, fat: 29 } },
-          { id: 48, name: 'Sour Cream', nutrition: { calories: 198, protein: 2.4, carbs: 4.6, fat: 19 } },
-          { id: 49, name: 'Heavy Cream', nutrition: { calories: 340, protein: 2.1, carbs: 2.8, fat: 36 } },
+          { name: 'Milk', nutrition: { calories: 42, protein: 3.4, carbs: 5, fat: 1 } },
+          { name: 'Butter', nutrition: { calories: 717, protein: 0.9, carbs: 0.1, fat: 81 } },
+          { name: 'Eggs', nutrition: { calories: 143, protein: 13, carbs: 1, fat: 10 } },
+          { name: 'Cheddar Cheese', nutrition: { calories: 403, protein: 25, carbs: 1.3, fat: 33 } },
+          { name: 'Mozzarella Cheese', nutrition: { calories: 280, protein: 28, carbs: 3, fat: 17 } },
+          { name: 'Parmesan Cheese', nutrition: { calories: 431, protein: 38, carbs: 4, fat: 29 } },
+          { name: 'Sour Cream', nutrition: { calories: 198, protein: 2.4, carbs: 4.6, fat: 19 } },
+          { name: 'Heavy Cream', nutrition: { calories: 340, protein: 2.1, carbs: 2.8, fat: 36 } },
           
           // Proteins
-          { id: 50, name: 'Chicken Breast', nutrition: { calories: 165, protein: 31, carbs: 0, fat: 3.6 } },
-          { id: 51, name: 'Ground Beef', nutrition: { calories: 250, protein: 26, carbs: 0, fat: 15 } },
-          { id: 52, name: 'Bacon', nutrition: { calories: 541, protein: 37, carbs: 1.4, fat: 42 } },
-          { id: 53, name: 'Salmon Fillet', nutrition: { calories: 208, protein: 20, carbs: 0, fat: 13 } },
-          { id: 54, name: 'Shrimp', nutrition: { calories: 99, protein: 24, carbs: 0.2, fat: 0.3 } },
+          { name: 'Chicken Breast', nutrition: { calories: 165, protein: 31, carbs: 0, fat: 3.6 } },
+          { name: 'Ground Beef', nutrition: { calories: 250, protein: 26, carbs: 0, fat: 15 } },
+          { name: 'Bacon', nutrition: { calories: 541, protein: 37, carbs: 1.4, fat: 42 } },
+          { name: 'Salmon Fillet', nutrition: { calories: 208, protein: 20, carbs: 0, fat: 13 } },
+          { name: 'Shrimp', nutrition: { calories: 99, protein: 24, carbs: 0.2, fat: 0.3 } },
           
           // Vegetables
-          { id: 55, name: 'Tomato', nutrition: { calories: 18, protein: 0.9, carbs: 3.9, fat: 0.2 } },
-          { id: 56, name: 'Bell Pepper', nutrition: { calories: 31, protein: 1, carbs: 6, fat: 0.3 } },
-          { id: 57, name: 'Carrot', nutrition: { calories: 41, protein: 0.9, carbs: 10, fat: 0.2 } },
-          { id: 58, name: 'Celery', nutrition: { calories: 14, protein: 0.7, carbs: 3, fat: 0.2 } },
-          { id: 59, name: 'Spinach', nutrition: { calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4 } },
-          { id: 60, name: 'Broccoli', nutrition: { calories: 34, protein: 2.8, carbs: 7, fat: 0.4 } },
-          { id: 61, name: 'Mushrooms', nutrition: { calories: 22, protein: 3.1, carbs: 3.3, fat: 0.3 } }
+          { name: 'Tomato', nutrition: { calories: 18, protein: 0.9, carbs: 3.9, fat: 0.2 } },
+          { name: 'Bell Pepper', nutrition: { calories: 31, protein: 1, carbs: 6, fat: 0.3 } },
+          { name: 'Carrot', nutrition: { calories: 41, protein: 0.9, carbs: 10, fat: 0.2 } },
+          { name: 'Celery', nutrition: { calories: 14, protein: 0.7, carbs: 3, fat: 0.2 } },
+          { name: 'Spinach', nutrition: { calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4 } },
+          { name: 'Broccoli', nutrition: { calories: 34, protein: 2.8, carbs: 7, fat: 0.4 } },
+          { name: 'Mushrooms', nutrition: { calories: 22, protein: 3.1, carbs: 3.3, fat: 0.3 } }
         ],
         recipes: [
           {
