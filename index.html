@@ -2131,8 +2131,8 @@
         'show-add-ingredient-modal': () => this.showAddIngredientModal(),
         'toggle-section': () => this.eventActions.toggleSection(target, event),
         'toggle-shopping-item': () => this.eventActions.toggleShoppingItem(target, name),
-        'remove-search-filter': () => this.removeSearchFilter(parseInt(id)),
-        'filter-by-ingredient': () => this.filterByIngredient(parseInt(id)),
+        'remove-search-filter': () => this.removeSearchFilter(name),
+        'filter-by-ingredient': () => this.filterByIngredient(name),
         'cooking-nav-next': () => this.navigateCookingStep(1),
         'cooking-nav-prev': () => this.navigateCookingStep(-1),
         'exit-cooking': () => this.navigateToView('recipes', this.cookingState.recipeId),
@@ -2186,11 +2186,13 @@
 
       this.root.appendChild(view);
       
-      // Restore saved filters
+      // Restore saved filters - use setTimeout to ensure DOM is updated
       if (this.uiState.filterSettings && this.uiState.filterSettings.activeFilters) {
         this.activeFilters = this.uiState.filterSettings.activeFilters;
         if (this.activeFilters.length > 0) {
-          this.filterRecipeList();
+          setTimeout(() => {
+            this.filterRecipeList();
+          }, 0);
         }
       }
       
@@ -2731,18 +2733,18 @@
       
       // Count recipes that use this ingredient
       const recipeCount = this.state.recipes.filter(r => 
-        r.ingredients.some(i => i.ingredientId === ing.id)
+        r.ingredients.some(i => i.name === ing.name)
       ).length;
       
       // Check if this ingredient is currently in active filters
-      const isActive = this.activeFilters.includes(ing.id);
+      const isActive = this.activeFilters.includes(ing.name);
       
       // Make the name clickable to filter recipes
       const clickableArea = nameEl.parentElement;
       clickableArea.style.cursor = 'pointer';
       clickableArea.style.flex = '1';
       clickableArea.dataset.action = 'filter-by-ingredient';
-      clickableArea.dataset.id = ing.id;
+      clickableArea.dataset.name = ing.name;
       
       if (isActive) {
         clickableArea.title = `Remove ${ing.name} filter (currently showing ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''})`;
@@ -2841,8 +2843,8 @@
       container.appendChild(categoryDiv);
     }
 
-    removeSearchFilter(id) {
-      this.activeFilters = this.activeFilters.filter(filterId => filterId !== id);
+    removeSearchFilter(ingredientName) {
+      this.activeFilters = this.activeFilters.filter(name => name !== ingredientName);
       
       // Save filter settings
       this.uiState.filterSettings = { activeFilters: this.activeFilters };
@@ -2859,24 +2861,21 @@
       this.updateFilterButton();
       
       // Show toast feedback
-      const ingredient = this.state.ingredients.find(i => i.id === id);
-      if (ingredient) {
-        this.showToast(`Removed ${ingredient.name} filter`);
-      }
+      this.showToast(`Removed ${ingredientName} filter`);
     }
 
-    filterByIngredient(ingredientId) {
-      const ingredient = this.state.ingredients.find(i => i.id === ingredientId);
+    filterByIngredient(ingredientName) {
+      const ingredient = this.state.ingredients.find(i => i.name === ingredientName);
       if (!ingredient) return;
       
       // Toggle the filter - if already active, remove it; otherwise add it
-      const isActive = this.activeFilters.includes(ingredientId);
+      const isActive = this.activeFilters.includes(ingredientName);
       
       if (isActive) {
-        this.removeSearchFilter(ingredientId);
+        this.removeSearchFilter(ingredientName);
       } else {
         // Add to filters
-        this.activeFilters.push(ingredientId);
+        this.activeFilters.push(ingredientName);
         
         // Save filter settings
         this.uiState.filterSettings = { activeFilters: this.activeFilters };
@@ -2885,14 +2884,9 @@
         // Navigate to recipes view with filter active
         this.navigateToView('recipes');
         
-        // Update filter display
-        setTimeout(() => {
-          this.updateFilterButton();
-        }, 100);
-        
         // Show toast feedback
         const recipeCount = this.state.recipes.filter(r => 
-          r.ingredients.some(i => i.ingredientId === ingredientId)
+          r.ingredients.some(i => i.name === ingredientName)
         ).length;
         this.showToast(`Showing ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} with ${ingredient.name}`);
       }
@@ -2973,17 +2967,14 @@
       badgeContainer.innerHTML = '';
       
       if (this.activeFilters.length > 0) {
-        this.activeFilters.forEach(ingredientId => {
-          const ingredient = this.state.ingredients.find(i => i.id === ingredientId);
-          if (ingredient) {
-            const badge = document.createElement('span');
-            badge.className = 'filter-badge';
-            badge.innerHTML = `
-              ${ingredient.name}
-              <button data-action="remove-search-filter" data-id="${ingredientId}" title="Remove filter" aria-label="Remove ${ingredient.name} filter">×</button>
-            `;
-            badgeContainer.appendChild(badge);
-          }
+        this.activeFilters.forEach(ingredientName => {
+          const badge = document.createElement('span');
+          badge.className = 'filter-badge';
+          badge.innerHTML = `
+            ${ingredientName}
+            <button data-action="remove-search-filter" data-name="${ingredientName}" title="Remove filter" aria-label="Remove ${ingredientName} filter">×</button>
+          `;
+          badgeContainer.appendChild(badge);
         });
       }
     }
@@ -3001,8 +2992,15 @@
         }
         const recipeId = parseInt(card.dataset.id);
         const recipe = this.state.recipes.find(r => r.id === recipeId);
-        const recipeIngredientIds = recipe.ingredients.map(i => i.ingredientId);
-        const canMake = this.activeFilters.every(filterId => recipeIngredientIds.includes(filterId));
+        
+        // Safety check: if recipe not found, hide the card
+        if (!recipe) {
+          card.hidden = true;
+          return;
+        }
+        
+        const recipeIngredientNames = recipe.ingredients.map(i => i.name);
+        const canMake = this.activeFilters.every(filterName => recipeIngredientNames.includes(filterName));
         
         if (canMake) {
           card.hidden = false;
@@ -3117,6 +3115,7 @@
         ],
         recipes: [
           {
+            id: 101,
             name: 'Spaghetti Aglio e Olio', servings: 2, category: 'Pasta',
             tags: ['Quick', 'Vegan', 'Classic'],
             ingredients: [
@@ -3154,6 +3153,7 @@
             notes: 'For extra flavor, add a splash of white wine with the garlic. Ensure pasta water is well-salted like the sea!'
           },
           {
+            id: 102,
             name: 'Simple Lemon Herb Chicken', servings: 4, category: 'Main Course',
             tags: ['Dinner', 'Healthy'],
             ingredients: [
